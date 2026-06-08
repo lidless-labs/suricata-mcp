@@ -10,6 +10,7 @@ export interface SuricataConfig {
   mispApiKey: string | null;
   thehiveUrl: string | null;
   thehiveApiKey: string | null;
+  allowMutation: boolean;
 }
 
 export function getConfig(): SuricataConfig {
@@ -26,5 +27,6 @@ export function getConfig(): SuricataConfig {
     mispApiKey: process.env.MISP_API_KEY ?? null,
     thehiveUrl: process.env.THEHIVE_URL ?? null,
     thehiveApiKey: process.env.THEHIVE_API_KEY ?? null,
+    allowMutation: process.env.SURICATA_ALLOW_MUTATION === "1",
   };
 }

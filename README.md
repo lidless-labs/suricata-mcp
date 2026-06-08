@@ -64,6 +64,31 @@ Set environment variables to point at your NIDS installation:
 | `MISP_API_KEY` | _(none)_ | MISP API key |
 | `THEHIVE_URL` | _(none)_ | TheHive instance URL |
 | `THEHIVE_API_KEY` | _(none)_ | TheHive API key |
+| `SURICATA_ALLOW_MUTATION` | _(off)_ | Set to `1` to enable mutating tools (rule writes, ruleset reload, PCAP replay). Off by default. |
+
+### Mutating tools (opt-in)
+
+By default the server is read-only: every analysis/query tool works, but the
+tools that change a live IDS or shell out are disabled. To enable them you must:
+
+1. Set `SURICATA_ALLOW_MUTATION=1` in the server environment (operator opt-in), **and**
+2. Pass `confirm: true` on the tool call itself (per-invocation opt-in).
+
+Both guards must be satisfied; otherwise the tool returns an error without
+acting. The gated tools are:
+
+- `suricata_create_rule` - appends to `local.rules`. Additionally enforces a
+  local SID range (`sid >= 1000000`) and rejects SIDs that collide with the
+  loaded ruleset.
+- `suricata_reload_rules_docker` - runs `suricata-update` + `SIGUSR2` against the
+  live container.
+- `pcap_replay_suricata` / `pcap_replay_zeek` - replay a PCAP through the engine.
+  Filenames are basename-sanitized, rejected if they begin with `-`
+  (option-injection), and concurrent replays are capped.
+
+Threat-intel HTTP calls (MISP/TheHive) use `redirect: "manual"`, so a 3xx from a
+compromised or misconfigured endpoint is refused rather than followed with the
+API key attached.
 
 ## Usage
 

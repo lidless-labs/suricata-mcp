@@ -8,8 +8,13 @@ import type { SuricataConfig } from "../config.js";
 import { loadAllRules } from "../parser/rules.js";
 import { matchesPartial } from "../query/filters.js";
 import { aggregate } from "../query/aggregation.js";
+import { checkMutationAllowed } from "./mutation.js";
 
 const execAsync = promisify(execCb);
+
+// Local rule SIDs must live in the operator-assigned range to avoid clobbering
+// vendor/ET rule SIDs. 1,000,000+ is the conventional local range.
+const LOCAL_SID_MIN = 1000000;
 
 export function registerRuleTools(
   server: McpServer,
@@ -111,14 +116,20 @@ export function registerRuleTools(
 
   server.tool(
     "suricata_create_rule",
-    "Create a custom Suricata rule and append it to local.rules",
+    "Create a custom Suricata rule and append it to local.rules (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
     {
       rule: z.string().describe("Complete Suricata rule string (e.g., alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"...\"; sid:...; rev:1;))"),
+      confirm: z.boolean().optional().describe("Must be true to write the rule (destructive opt-in)"),
     },
     async (args) => {
       try {
         if (!config.rulesDir) {
           return { content: [{ type: "text" as const, text: "Rules directory not configured. Set SURICATA_RULES_DIR." }], isError: true };
+        }
+
+        const gate = checkMutationAllowed(config, args, "create a Suricata rule");
+        if (!gate.allowed) {
+          return gate.response;
         }
 
         // Basic validation
@@ -133,6 +144,17 @@ export function registerRuleTools(
           return { content: [{ type: "text" as const, text: "Rule must contain a sid option." }], isError: true };
         }
         const sid = parseInt(sidMatch[1], 10);
+
+        // Enforce the local SID range so we can't clobber vendor/ET rule SIDs.
+        if (sid < LOCAL_SID_MIN) {
+          return { content: [{ type: "text" as const, text: `Local rule SID must be >= ${LOCAL_SID_MIN} (got ${sid}). Lower SIDs are reserved for vendor rulesets.` }], isError: true };
+        }
+
+        // Collision check against the currently loaded ruleset.
+        const existingRules = await loadAllRules(config.rulesDir);
+        if (existingRules.some((r) => r.sid === sid)) {
+          return { content: [{ type: "text" as const, text: `SID ${sid} already exists in the loaded ruleset. Choose a unique SID.` }], isError: true };
+        }
 
         const localRulesPath = join(config.rulesDir, "local.rules");
         await appendFile(localRulesPath, args.rule.trim() + "\n");
@@ -218,10 +240,17 @@ export function registerRuleTools(
 
   server.tool(
     "suricata_reload_rules_docker",
-    "Reload Suricata rules via Docker (suricata-update + SIGUSR2)",
-    {},
-    async () => {
+    "Reload Suricata rules via Docker (suricata-update + SIGUSR2) (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    {
+      confirm: z.boolean().optional().describe("Must be true to reload the live ruleset (destructive opt-in)"),
+    },
+    async (args) => {
       try {
+        const gate = checkMutationAllowed(config, args, "reload the live Suricata ruleset");
+        if (!gate.allowed) {
+          return gate.response;
+        }
+
         const cmd = 'docker exec suricata suricata-update && docker exec suricata kill -USR2 $(docker exec suricata cat /var/run/suricata.pid)';
         const { stdout, stderr } = await execAsync(cmd, { timeout: 60000 });
 

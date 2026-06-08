@@ -2,6 +2,25 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
 
+/**
+ * Thrown when an intel endpoint responds with a redirect. We use
+ * `redirect: "manual"` so the runtime never transparently re-sends the
+ * Authorization header (MISP/TheHive API key) to a different host. A redirect
+ * from a compromised or misconfigured endpoint is treated as a hard failure
+ * rather than silently followed.
+ */
+class RedirectNotAllowedError extends Error {
+  constructor(public readonly status: number, public readonly location: string | null) {
+    super(
+      `Intel endpoint returned a redirect (HTTP ${status}` +
+        (location ? ` -> ${location}` : "") +
+        "). Refusing to follow it with credentials attached. " +
+        "Point *_URL directly at the API host (no redirect).",
+    );
+    this.name = "RedirectNotAllowedError";
+  }
+}
+
 async function httpRequest(
   url: string,
   options: {
@@ -15,12 +34,27 @@ async function httpRequest(
   const timer = setTimeout(() => controller.abort(), options.timeout ?? 30000);
 
   try {
+    // `redirect: "manual"` prevents the fetch implementation from transparently
+    // following 3xx responses. Following them would forward the API key in the
+    // Authorization header to whatever host the redirect points at.
     const response = await fetch(url, {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.body,
       signal: controller.signal,
+      redirect: "manual",
     });
+
+    // A manual-redirect response surfaces as either an opaqueredirect
+    // (response.type === "opaqueredirect") or a 3xx status depending on the
+    // runtime. Treat any redirect as a refusal instead of leaking credentials.
+    if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+      throw new RedirectNotAllowedError(
+        response.status || 0,
+        response.headers.get("location"),
+      );
+    }
+
     const body = await response.text();
     return { status: response.status, body };
   } finally {
@@ -68,8 +102,26 @@ export function registerThreatIntelTools(
           },
         );
 
-        const data = JSON.parse(result.body);
-        const attributes = data?.response?.Attribute ?? [];
+        if (result.status < 200 || result.status >= 300) {
+          return {
+            content: [{
+              type: "text" as const,
+              text: JSON.stringify({ status: "error", httpStatus: result.status, message: "MISP request failed" }, null, 2),
+            }],
+            isError: true,
+          };
+        }
+
+        let data: Record<string, unknown>;
+        try {
+          data = JSON.parse(result.body);
+        } catch {
+          return {
+            content: [{ type: "text" as const, text: `MISP returned a non-JSON response (HTTP ${result.status}).` }],
+            isError: true,
+          };
+        }
+        const attributes = ((data as { response?: { Attribute?: Record<string, unknown>[] } })?.response?.Attribute ?? []) as Record<string, unknown>[];
 
         return {
           content: [{
@@ -134,7 +186,15 @@ export function registerThreatIntelTools(
         );
 
         if (result.status >= 200 && result.status < 300) {
-          const data = JSON.parse(result.body);
+          let data: Record<string, unknown>;
+          try {
+            data = JSON.parse(result.body);
+          } catch {
+            return {
+              content: [{ type: "text" as const, text: `TheHive returned a non-JSON response (HTTP ${result.status}).` }],
+              isError: true,
+            };
+          }
           return {
             content: [{
               type: "text" as const,
@@ -151,7 +211,7 @@ export function registerThreatIntelTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ status: "error", httpStatus: result.status, body: result.body }, null, 2),
+            text: JSON.stringify({ status: "error", httpStatus: result.status, message: "TheHive case creation failed" }, null, 2),
           }],
           isError: true,
         };
@@ -214,7 +274,15 @@ export function registerThreatIntelTools(
         );
 
         if (result.status >= 200 && result.status < 300) {
-          const data = JSON.parse(result.body);
+          let data: Record<string, unknown>;
+          try {
+            data = JSON.parse(result.body);
+          } catch {
+            return {
+              content: [{ type: "text" as const, text: `TheHive returned a non-JSON response (HTTP ${result.status}).` }],
+              isError: true,
+            };
+          }
           return {
             content: [{
               type: "text" as const,
@@ -231,7 +299,7 @@ export function registerThreatIntelTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ status: "error", httpStatus: result.status, body: result.body }, null, 2),
+            text: JSON.stringify({ status: "error", httpStatus: result.status, message: "TheHive alert creation failed" }, null, 2),
           }],
           isError: true,
         };
