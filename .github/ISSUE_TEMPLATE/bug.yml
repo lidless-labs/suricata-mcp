@@ -1,0 +1,59 @@
+name: Bug report
+description: Something is broken in suricata-mcp itself, such as a tool, the parsers, the query engine, the analytics, or the docs.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Which tool did you call (or what did you ask the model to do), and what did you expect versus what you got?
+      placeholder: |
+        I called `suricata_query_alerts` with `{ "src_ip": "192.0.2.10" }` and got X.
+        I expected Y.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: suricata-mcp version
+      description: The npm version or commit you are running.
+      placeholder: 2.0.0
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: 20.11.1
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      description: Which client runs the server (Claude Desktop, Claude Code, Codex CLI, OpenClaw, Hermes, other).
+      placeholder: Claude Desktop
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: Ubuntu 24.04, macOS 14.5, etc.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Tool input, output, and any error
+      description: Paste the tool arguments, the response, and any stderr. Keep enough for us to reproduce.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: scrub
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I have scrubbed any real hostnames, IP addresses, tokens, or personal paths from this report (use 192.0.2.x and generic names).
+          required: true

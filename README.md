@@ -5,21 +5,43 @@
 <h1 align="center">suricata-mcp</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/suricata-mcp"><img src="https://img.shields.io/npm/v/suricata-mcp?style=flat-square&logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/solomonneas/suricata-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/solomonneas/suricata-mcp/ci.yml?branch=main&style=flat-square&label=CI&logo=github" alt="CI status" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-6.0-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 6.0" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%2B-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 20+" /></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP%20SDK-1.29-6f42c1?style=flat-square" alt="MCP SDK 1.29" /></a>
-  <a href="https://suricata.io/"><img src="https://img.shields.io/badge/Suricata-IDS%2FIPS-f15a24?style=flat-square" alt="Suricata IDS/IPS" /></a>
-  <a href="https://zeek.org/"><img src="https://img.shields.io/badge/Zeek-NSM-00aeef?style=flat-square" alt="Zeek NSM correlation" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="MIT license" /></a>
+  <strong>An MCP server that lets an AI client read and triage Suricata IDS/IPS and Zeek NSM telemetry, so alert investigation happens in natural language instead of grep over EVE JSON.</strong>
 </p>
 
-An MCP (Model Context Protocol) server for network security monitoring. Provides intelligent analysis of Suricata IDS/IPS and Zeek NSM logs, cross-correlation between sensors, threat intelligence integration (MISP + TheHive), PCAP replay, and advanced analytics including DGA detection, C2 beaconing, data exfiltration, and lateral movement detection.
+<p align="center">
+  <a href="https://www.npmjs.com/package/suricata-mcp"><img src="https://img.shields.io/npm/v/suricata-mcp?style=for-the-badge&logo=npm&color=cb3837" alt="npm version" /></a>
+  <a href="https://github.com/lidless-labs/suricata-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lidless-labs/suricata-mcp/ci.yml?branch=main&style=for-the-badge&label=CI&logo=github" alt="CI status" /></a>
+  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-server-6f42c1?style=for-the-badge" alt="Model Context Protocol server" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge" alt="MIT license" /></a>
+</p>
+
+<p align="center">
+  <a href="https://lidless.dev/suricata-mcp"><strong>Website &amp; docs -&gt; lidless.dev/suricata-mcp</strong></a>
+</p>
+
+suricata-mcp is a Model Context Protocol (MCP) server for network security monitoring: it exposes Suricata IDS/IPS alerts and Zeek NSM logs to an AI client as structured tools. **Why:** a SOC analyst chasing a single alert normally pivots by hand across `eve.json`, flow records, DNS/HTTP/TLS transactions, and the Zeek logs next to them, which is slow and easy to get wrong under pressure. **How it differs:** instead of a dashboard or a one-shot log shipper, it gives the model query, aggregation, correlation, and threat-hunting tools that run locally against your own log files, with cross-correlation between Suricata and Zeek and built-in analytics for C2 beaconing, DGA, exfiltration, and lateral movement, so the analyst asks questions in plain language and the model does the pivoting.
+
+## What it does
+
+suricata-mcp is an MCP server for **Suricata** IDS/IPS and **Zeek** network-security monitoring. It reads Suricata **EVE JSON** alerts, flows, and protocol records (DNS, HTTP, TLS/JA3/JA4, SSH, fileinfo, anomalies) and Zeek TSV logs straight off disk, then exposes them to an AI client as MCP tools for querying, aggregation, timelines, host and alert investigation, and cross-sensor correlation. On top of the raw telemetry it ships intrusion-detection analytics, C2 beaconing detection, DGA domain detection via Shannon entropy, data-exfiltration detection, and lateral-movement detection, plus Suricata rule management and optional threat-intel pivots into MISP and TheHive. The server is **read-only by default**: every analysis tool works out of the box, and the handful of tools that change a live IDS or shell out stay disabled until you explicitly opt in. It speaks MCP over stdio, so it drops into Claude Desktop, Claude Code, Codex CLI, OpenClaw, Hermes, or any MCP-capable agent.
+
+## Why not query the logs directly?
+
+- **`jq` / `grep` over `eve.json`.** Fine for one field on one file. It does not cross-correlate a Suricata alert with the Zeek `conn`/`dns`/`http`/`ssl` records for the same IP pair and time window, it does not compute beaconing intervals or DNS entropy, and it does not hand an LLM a typed tool surface. suricata-mcp does all of that and streams large, gzip-rotated logs without loading them whole.
+- **A full SIEM (Splunk, Elastic, Wazuh).** A SIEM is the right home for long-term retention, dashboards, and multi-source alerting. suricata-mcp is not a SIEM and is not trying to be one. It is a local, zero-infrastructure way to let an agent reason over the Suricata and Zeek logs already on a sensor, with no index to feed and no service to run.
+- **A generic log-tailing MCP server.** Those stream raw lines. suricata-mcp understands EVE JSON and Zeek TSV schemas, so it filters by SID, signature, JA3/JA4, MIME type, and CIDR, aggregates top talkers and protocol distributions, and returns structured results an agent can act on instead of text blobs.
+- **Writing your own MCP wrapper.** You could, but you would re-implement streaming EVE/Zeek parsers, CIDR-aware filtering, the analytics, the dual mutation guard, and the redirect-refusing threat-intel client. That work is already done and tested here.
+
+## What suricata-mcp is not
+
+- **Not a packet capture or IDS engine.** It does not sniff traffic or run detection. Suricata (and optionally Zeek) produce the logs; this server reads them.
+- **Not a SIEM, log store, or dashboard.** No retention, no UI, no indexing. It analyzes the logs that already exist on disk.
+- **Not write-happy.** By default it cannot modify your ruleset, reload the engine, or replay a PCAP. Mutating tools require both an operator environment opt-in and a per-call `confirm: true`.
+- **Not a hosted service.** It runs locally over stdio against your own files. Nothing is sent anywhere except the optional, explicit MISP/TheHive calls you configure.
 
 ## Features
 
-- **36 tools** for comprehensive network security analysis
+- **41 tools** for comprehensive network security analysis
 - **5 resources** for quick reference data
 - **5 prompts** for guided investigation workflows
 - **Suricata EVE JSON** alert querying, flow analysis, protocol inspection, rule management
@@ -31,6 +53,28 @@ An MCP (Model Context Protocol) server for network security monitoring. Provides
 - **Rule management** create, enable/disable, and reload custom Suricata rules
 - Streaming parsers for large files, CIDR-aware filtering, gzip archive support
 
+## Quickstart
+
+Add suricata-mcp to any MCP client with the published npm package. No clone or build required:
+
+```json
+{
+  "mcpServers": {
+    "suricata": {
+      "command": "npx",
+      "args": ["-y", "suricata-mcp"],
+      "env": {
+        "SURICATA_EVE_LOG": "/var/log/suricata/eve.json",
+        "SURICATA_RULES_DIR": "/etc/suricata/rules",
+        "ZEEK_LOGS_DIR": "/opt/zeek/logs"
+      }
+    }
+  }
+}
+```
+
+That is the entire install. The server starts read-only against the logs you point it at; everything below is configuration detail and per-client wiring.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -40,8 +84,10 @@ An MCP (Model Context Protocol) server for network security monitoring. Provides
 
 ## Installation
 
+Most clients can run the published package directly with `npx -y suricata-mcp` (see [Quickstart](#quickstart)). To work from source instead:
+
 ```bash
-git clone https://github.com/solomonneas/suricata-mcp.git
+git clone https://github.com/lidless-labs/suricata-mcp.git
 cd suricata-mcp
 npm install
 npm run build
@@ -100,7 +146,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "suricata": {
-      "command": "suricata-mcp",
+      "command": "npx",
+      "args": ["-y", "suricata-mcp"],
       "env": {
         "SURICATA_EVE_LOG": "/opt/nids/suricata/logs/eve.json",
         "SURICATA_RULES_DIR": "/opt/nids/suricata/rules",
@@ -116,6 +163,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 }
 ```
 
+If you installed from source, set `"command": "suricata-mcp"` (global npm install) or `"command": "node"` with `"args": ["/absolute/path/to/suricata-mcp/dist/index.js"]`.
+
 ### Claude Code
 
 ```bash
@@ -123,7 +172,7 @@ claude mcp add suricata \
   --env SURICATA_EVE_LOG=/opt/nids/suricata/logs/eve.json \
   --env SURICATA_RULES_DIR=/opt/nids/suricata/rules \
   --env ZEEK_LOGS_DIR=/opt/nids/zeek/logs \
-  -- suricata-mcp
+  -- npx -y suricata-mcp
 ```
 
 Add `--scope user` to make it available from any directory instead of only the current project.
@@ -144,11 +193,12 @@ openclaw mcp set suricata '{
 }'
 ```
 
-Or, with the global npm install:
+Or, with the published package:
 
 ```bash
 openclaw mcp set suricata '{
-  "command": "suricata-mcp",
+  "command": "npx",
+  "args": ["-y", "suricata-mcp"],
   "env": {
     "SURICATA_EVE_LOG": "/opt/nids/suricata/logs/eve.json",
     "SURICATA_RULES_DIR": "/opt/nids/suricata/rules",
@@ -171,14 +221,15 @@ openclaw mcp list   # confirm "suricata" is registered
 ```yaml
 mcp_servers:
   suricata:
-    command: "suricata-mcp"
+    command: "npx"
+    args: ["-y", "suricata-mcp"]
     env:
       SURICATA_EVE_LOG: "/opt/nids/suricata/logs/eve.json"
       SURICATA_RULES_DIR: "/opt/nids/suricata/rules"
       ZEEK_LOGS_DIR: "/opt/nids/zeek/logs"
 ```
 
-Or, when running from a source checkout instead of the global npm install:
+Or, when running from a source checkout instead of the published package:
 
 ```yaml
 mcp_servers:
@@ -206,7 +257,7 @@ codex mcp add suricata \
   --env SURICATA_EVE_LOG=/opt/nids/suricata/logs/eve.json \
   --env SURICATA_RULES_DIR=/opt/nids/suricata/rules \
   --env ZEEK_LOGS_DIR=/opt/nids/zeek/logs \
-  -- suricata-mcp
+  -- npx -y suricata-mcp
 ```
 
 Or, when running from a source checkout:
@@ -431,6 +482,10 @@ npm test             # Run all 158 tests
 npm run test:watch   # Watch mode
 ```
 
+## Contributing
+
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution path and [SECURITY.md](SECURITY.md) before reporting a vulnerability. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
-MIT
+[MIT](LICENSE)
