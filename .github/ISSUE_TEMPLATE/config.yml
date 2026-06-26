@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Project website and docs
+    url: https://lidless.dev/suricata-mcp
+    about: Overview, tool reference, and configuration for suricata-mcp.
+  - name: Security report
+    url: https://github.com/lidless-labs/suricata-mcp/security/advisories/new
+    about: Do not file security issues publicly. See SECURITY.md and use private vulnerability reporting.
+  - name: Suricata documentation
+    url: https://docs.suricata.io/
+    about: Questions about Suricata itself, EVE JSON output, or rules belong with the Suricata project.

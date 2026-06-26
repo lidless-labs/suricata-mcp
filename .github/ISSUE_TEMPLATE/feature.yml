@@ -1,0 +1,46 @@
+name: Feature request
+description: Suggest a new tool, query filter, analytic, or improvement for suricata-mcp.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: Describe the investigation or workflow you want to run through an AI client and where suricata-mcp falls short today.
+      placeholder: |
+        When triaging a TLS alert I want the model to pivot on JA4 across both Suricata and Zeek, but there is no single tool for it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: A new tool, a new filter on an existing tool, a new analytic, or a docs/wiring improvement. If it is a new tool, note its name and inputs.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of change
+      options:
+        - New tool, resource, or prompt
+        - New filter or option on an existing tool
+        - New or improved analytic / detector
+        - Docs or client wiring
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What you do today instead (jq, a SIEM query, a manual pivot), and why it is not enough.
+    validations:
+      required: false
+  - type: checkboxes
+    id: surface
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: I understand that a new tool, resource, or prompt is a public-contract change and may need discussion before it lands (see CONTRIBUTING.md).
+          required: true
