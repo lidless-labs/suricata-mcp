@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/suricata-mcp-banner.jpg" alt="Watercolor EVE alert triage desk for suricata-mcp" width="100%" />
+  <img src="docs/assets/suricata-mcp-banner.jpg" alt="suricata-mcp banner" width="900">
 </p>
 
 <h1 align="center">suricata-mcp</h1>
@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/suricata-mcp"><img src="https://img.shields.io/npm/v/suricata-mcp?style=for-the-badge&logo=npm&color=cb3837" alt="npm version" /></a>
-  <a href="https://github.com/lidless-labs/suricata-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lidless-labs/suricata-mcp/ci.yml?branch=main&style=for-the-badge&label=CI&logo=github" alt="CI status" /></a>
-  <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-server-6f42c1?style=for-the-badge" alt="Model Context Protocol server" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge" alt="MIT license" /></a>
+  <a href="https://lidless.dev/suricata-mcp"><strong>Website &amp; docs -&gt; lidless.dev/suricata-mcp</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://lidless.dev/suricata-mcp"><strong>Website &amp; docs -&gt; lidless.dev/suricata-mcp</strong></a>
+  <img src="https://img.shields.io/npm/v/suricata-mcp?style=for-the-badge&logo=npm&label=npm" alt="npm version">
+  <img src="https://img.shields.io/github/actions/workflow/status/lidless-labs/suricata-mcp/ci.yml?branch=main&style=for-the-badge&label=ci" alt="CI status">
+  <img src="https://img.shields.io/badge/MCP-server-8A2BE2?style=for-the-badge" alt="MCP server">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT license">
 </p>
 
 suricata-mcp is a Model Context Protocol (MCP) server for network security monitoring: it exposes Suricata IDS/IPS alerts and Zeek NSM logs to an AI client as structured tools. **Why:** a SOC analyst chasing a single alert normally pivots by hand across `eve.json`, flow records, DNS/HTTP/TLS transactions, and the Zeek logs next to them, which is slow and easy to get wrong under pressure. **How it differs:** instead of a dashboard or a one-shot log shipper, it gives the model query, aggregation, correlation, and threat-hunting tools that run locally against your own log files, with cross-correlation between Suricata and Zeek and built-in analytics for C2 beaconing, DGA, exfiltration, and lateral movement, so the analyst asks questions in plain language and the model does the pivoting.
@@ -25,33 +25,16 @@ suricata-mcp is a Model Context Protocol (MCP) server for network security monit
 
 suricata-mcp is an MCP server for **Suricata** IDS/IPS and **Zeek** network-security monitoring. It reads Suricata **EVE JSON** alerts, flows, and protocol records (DNS, HTTP, TLS/JA3/JA4, SSH, fileinfo, anomalies) and Zeek TSV logs straight off disk, then exposes them to an AI client as MCP tools for querying, aggregation, timelines, host and alert investigation, and cross-sensor correlation. On top of the raw telemetry it ships intrusion-detection analytics, C2 beaconing detection, DGA domain detection via Shannon entropy, data-exfiltration detection, and lateral-movement detection, plus Suricata rule management and optional threat-intel pivots into MISP and TheHive. The server is **read-only by default**: every analysis tool works out of the box, and the handful of tools that change a live IDS or shell out stay disabled until you explicitly opt in. It speaks MCP over stdio, so it drops into Claude Desktop, Claude Code, Codex CLI, OpenClaw, Hermes, or any MCP-capable agent.
 
-## Why not query the logs directly?
+## Installation
 
-- **`jq` / `grep` over `eve.json`.** Fine for one field on one file. It does not cross-correlate a Suricata alert with the Zeek `conn`/`dns`/`http`/`ssl` records for the same IP pair and time window, it does not compute beaconing intervals or DNS entropy, and it does not hand an LLM a typed tool surface. suricata-mcp does all of that and streams large, gzip-rotated logs without loading them whole.
-- **A full SIEM (Splunk, Elastic, Wazuh).** A SIEM is the right home for long-term retention, dashboards, and multi-source alerting. suricata-mcp is not a SIEM and is not trying to be one. It is a local, zero-infrastructure way to let an agent reason over the Suricata and Zeek logs already on a sensor, with no index to feed and no service to run.
-- **A generic log-tailing MCP server.** Those stream raw lines. suricata-mcp understands EVE JSON and Zeek TSV schemas, so it filters by SID, signature, JA3/JA4, MIME type, and CIDR, aggregates top talkers and protocol distributions, and returns structured results an agent can act on instead of text blobs.
-- **Writing your own MCP wrapper.** You could, but you would re-implement streaming EVE/Zeek parsers, CIDR-aware filtering, the analytics, the dual mutation guard, and the redirect-refusing threat-intel client. That work is already done and tested here.
+Most clients can run the published package directly with `npx -y suricata-mcp` (see [Quickstart](#quickstart)). To work from source instead:
 
-## What suricata-mcp is not
-
-- **Not a packet capture or IDS engine.** It does not sniff traffic or run detection. Suricata (and optionally Zeek) produce the logs; this server reads them.
-- **Not a SIEM, log store, or dashboard.** No retention, no UI, no indexing. It analyzes the logs that already exist on disk.
-- **Not write-happy.** By default it cannot modify your ruleset, reload the engine, or replay a PCAP. Mutating tools require both an operator environment opt-in and a per-call `confirm: true`.
-- **Not a hosted service.** It runs locally over stdio against your own files. Nothing is sent anywhere except the optional, explicit MISP/TheHive calls you configure.
-
-## Features
-
-- **41 tools** for comprehensive network security analysis
-- **5 resources** for quick reference data
-- **5 prompts** for guided investigation workflows
-- **Suricata EVE JSON** alert querying, flow analysis, protocol inspection, rule management
-- **Zeek TSV logs** connection analysis, DNS/HTTP/TLS/SSH/file inspection
-- **Cross-correlation** between Suricata alerts and Zeek network metadata
-- **Threat intel** integration with MISP IOC lookup and TheHive case/alert creation
-- **PCAP management** list and replay PCAPs through Suricata or Zeek
-- **Advanced analytics** DGA detection, C2 beaconing, data exfiltration, lateral movement
-- **Rule management** create, enable/disable, and reload custom Suricata rules
-- Streaming parsers for large files, CIDR-aware filtering, gzip archive support
+```bash
+git clone https://github.com/lidless-labs/suricata-mcp.git
+cd suricata-mcp
+npm install
+npm run build
+```
 
 ## Quickstart
 
@@ -74,67 +57,6 @@ Add suricata-mcp to any MCP client with the published npm package. No clone or b
 ```
 
 That is the entire install. The server starts read-only against the logs you point it at; everything below is configuration detail and per-client wiring.
-
-## Prerequisites
-
-- Node.js 20+
-- Suricata sensor producing EVE JSON logs
-- (Optional) Zeek NSM with TSV log output
-- (Optional) MISP and/or TheHive instances for threat intel
-
-## Installation
-
-Most clients can run the published package directly with `npx -y suricata-mcp` (see [Quickstart](#quickstart)). To work from source instead:
-
-```bash
-git clone https://github.com/lidless-labs/suricata-mcp.git
-cd suricata-mcp
-npm install
-npm run build
-```
-
-## Configuration
-
-Set environment variables to point at your NIDS installation:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SURICATA_EVE_LOG` | `/var/log/suricata/eve.json` | Path to primary EVE JSON log |
-| `SURICATA_EVE_ARCHIVE` | `/var/log/suricata/` | Directory for rotated/archived logs |
-| `SURICATA_RULES_DIR` | _(none)_ | Suricata rules directory |
-| `SURICATA_MAX_RESULTS` | `1000` | Maximum results per query |
-| `SURICATA_UNIX_SOCKET` | _(none)_ | Unix socket path for live commands |
-| `ZEEK_LOGS_DIR` | _(none)_ | Zeek log directory (enables Zeek tools) |
-| `PCAP_DIR` | _(none)_ | PCAP drop directory (enables PCAP tools) |
-| `MISP_URL` | _(none)_ | MISP instance URL |
-| `MISP_API_KEY` | _(none)_ | MISP API key |
-| `THEHIVE_URL` | _(none)_ | TheHive instance URL |
-| `THEHIVE_API_KEY` | _(none)_ | TheHive API key |
-| `SURICATA_ALLOW_MUTATION` | _(off)_ | Set to `1` to enable mutating tools (rule writes, ruleset reload, PCAP replay). Off by default. |
-
-### Mutating tools (opt-in)
-
-By default the server is read-only: every analysis/query tool works, but the
-tools that change a live IDS or shell out are disabled. To enable them you must:
-
-1. Set `SURICATA_ALLOW_MUTATION=1` in the server environment (operator opt-in), **and**
-2. Pass `confirm: true` on the tool call itself (per-invocation opt-in).
-
-Both guards must be satisfied; otherwise the tool returns an error without
-acting. The gated tools are:
-
-- `suricata_create_rule` - appends to `local.rules`. Additionally enforces a
-  local SID range (`sid >= 1000000`) and rejects SIDs that collide with the
-  loaded ruleset.
-- `suricata_reload_rules_docker` - runs `suricata-update` + `SIGUSR2` against the
-  live container.
-- `pcap_replay_suricata` / `pcap_replay_zeek` - replay a PCAP through the engine.
-  Filenames are basename-sanitized, rejected if they begin with `-`
-  (option-injection), and concurrent replays are capped.
-
-Threat-intel HTTP calls (MISP/TheHive) use `redirect: "manual"`, so a 3xx from a
-compromised or misconfigured endpoint is refused rather than followed with the
-API key attached.
 
 ## Usage
 
@@ -391,6 +313,70 @@ npm run lint         # Type-check
 | `thehive_create_case` | Create a TheHive case from investigation findings |
 | `thehive_create_alert` | Push a Suricata alert to TheHive for triage |
 
+## Configuration
+
+Set environment variables to point at your NIDS installation:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SURICATA_EVE_LOG` | `/var/log/suricata/eve.json` | Path to primary EVE JSON log |
+| `SURICATA_EVE_ARCHIVE` | `/var/log/suricata/` | Directory for rotated/archived logs |
+| `SURICATA_RULES_DIR` | _(none)_ | Suricata rules directory |
+| `SURICATA_MAX_RESULTS` | `1000` | Maximum results per query |
+| `SURICATA_UNIX_SOCKET` | _(none)_ | Unix socket path for live commands |
+| `ZEEK_LOGS_DIR` | _(none)_ | Zeek log directory (enables Zeek tools) |
+| `PCAP_DIR` | _(none)_ | PCAP drop directory (enables PCAP tools) |
+| `MISP_URL` | _(none)_ | MISP instance URL |
+| `MISP_API_KEY` | _(none)_ | MISP API key |
+| `THEHIVE_URL` | _(none)_ | TheHive instance URL |
+| `THEHIVE_API_KEY` | _(none)_ | TheHive API key |
+| `SURICATA_ALLOW_MUTATION` | _(off)_ | Set to `1` to enable mutating tools (rule writes, ruleset reload, PCAP replay). Off by default. |
+
+### Mutating tools (opt-in)
+
+By default the server is read-only: every analysis/query tool works, but the
+tools that change a live IDS or shell out are disabled. To enable them you must:
+
+1. Set `SURICATA_ALLOW_MUTATION=1` in the server environment (operator opt-in), **and**
+2. Pass `confirm: true` on the tool call itself (per-invocation opt-in).
+
+Both guards must be satisfied; otherwise the tool returns an error without
+acting. The gated tools are:
+
+- `suricata_create_rule` - appends to `local.rules`. Additionally enforces a
+  local SID range (`sid >= 1000000`) and rejects SIDs that collide with the
+  loaded ruleset.
+- `suricata_reload_rules_docker` - runs `suricata-update` + `SIGUSR2` against the
+  live container.
+- `pcap_replay_suricata` / `pcap_replay_zeek` - replay a PCAP through the engine.
+  Filenames are basename-sanitized, rejected if they begin with `-`
+  (option-injection), and concurrent replays are capped.
+
+Threat-intel HTTP calls (MISP/TheHive) use `redirect: "manual"`, so a 3xx from a
+compromised or misconfigured endpoint is refused rather than followed with the
+API key attached.
+
+## Features
+
+- **41 tools** for comprehensive network security analysis
+- **5 resources** for quick reference data
+- **5 prompts** for guided investigation workflows
+- **Suricata EVE JSON** alert querying, flow analysis, protocol inspection, rule management
+- **Zeek TSV logs** connection analysis, DNS/HTTP/TLS/SSH/file inspection
+- **Cross-correlation** between Suricata alerts and Zeek network metadata
+- **Threat intel** integration with MISP IOC lookup and TheHive case/alert creation
+- **PCAP management** list and replay PCAPs through Suricata or Zeek
+- **Advanced analytics** DGA detection, C2 beaconing, data exfiltration, lateral movement
+- **Rule management** create, enable/disable, and reload custom Suricata rules
+- Streaming parsers for large files, CIDR-aware filtering, gzip archive support
+
+## Prerequisites
+
+- Node.js 20+
+- Suricata sensor producing EVE JSON logs
+- (Optional) Zeek NSM with TSV log output
+- (Optional) MISP and/or TheHive instances for threat intel
+
 ## Resources
 
 | URI | Description |
@@ -474,6 +460,20 @@ suricata-mcp/
   scripts/
     generate-eve.ts       # Mock EVE data generator
 ```
+
+## Why not query the logs directly?
+
+- **`jq` / `grep` over `eve.json`.** Fine for one field on one file. It does not cross-correlate a Suricata alert with the Zeek `conn`/`dns`/`http`/`ssl` records for the same IP pair and time window, it does not compute beaconing intervals or DNS entropy, and it does not hand an LLM a typed tool surface. suricata-mcp does all of that and streams large, gzip-rotated logs without loading them whole.
+- **A full SIEM (Splunk, Elastic, Wazuh).** A SIEM is the right home for long-term retention, dashboards, and multi-source alerting. suricata-mcp is not a SIEM and is not trying to be one. It is a local, zero-infrastructure way to let an agent reason over the Suricata and Zeek logs already on a sensor, with no index to feed and no service to run.
+- **A generic log-tailing MCP server.** Those stream raw lines. suricata-mcp understands EVE JSON and Zeek TSV schemas, so it filters by SID, signature, JA3/JA4, MIME type, and CIDR, aggregates top talkers and protocol distributions, and returns structured results an agent can act on instead of text blobs.
+- **Writing your own MCP wrapper.** You could, but you would re-implement streaming EVE/Zeek parsers, CIDR-aware filtering, the analytics, the dual mutation guard, and the redirect-refusing threat-intel client. That work is already done and tested here.
+
+## What suricata-mcp is not
+
+- **Not a packet capture or IDS engine.** It does not sniff traffic or run detection. Suricata (and optionally Zeek) produce the logs; this server reads them.
+- **Not a SIEM, log store, or dashboard.** No retention, no UI, no indexing. It analyzes the logs that already exist on disk.
+- **Not write-happy.** By default it cannot modify your ruleset, reload the engine, or replay a PCAP. Mutating tools require both an operator environment opt-in and a per-call `confirm: true`.
+- **Not a hosted service.** It runs locally over stdio against your own files. Nothing is sent anywhere except the optional, explicit MISP/TheHive calls you configure.
 
 ## Testing
 
