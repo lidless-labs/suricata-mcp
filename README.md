@@ -13,10 +13,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/npm/v/suricata-mcp?style=for-the-badge&logo=npm&label=npm" alt="npm version">
-  <img src="https://img.shields.io/github/actions/workflow/status/lidless-labs/suricata-mcp/ci.yml?branch=main&style=for-the-badge&label=ci" alt="CI status">
-  <img src="https://img.shields.io/badge/MCP-server-8A2BE2?style=for-the-badge" alt="MCP server">
-  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT license">
+  <img src="https://shieldcn.dev/npm/suricata-mcp.svg" alt="npm version">
+  <img src="https://shieldcn.dev/github/ci/lidless-labs/suricata-mcp.svg?branch=main&workflow=ci.yml" alt="CI status">
+  <img src="https://shieldcn.dev/badge/MCP-server-8A2BE2.svg" alt="MCP server">
+  <img src="https://shieldcn.dev/badge/license-MIT-green.svg" alt="MIT license">
 </p>
 
 suricata-mcp is a Model Context Protocol (MCP) server for network security monitoring: it exposes Suricata IDS/IPS alerts and Zeek NSM logs to an AI client as structured tools. **Why:** a SOC analyst chasing a single alert normally pivots by hand across `eve.json`, flow records, DNS/HTTP/TLS transactions, and the Zeek logs next to them, which is slow and easy to get wrong under pressure. **How it differs:** instead of a dashboard or a one-shot log shipper, it gives the model query, aggregation, correlation, and threat-hunting tools that run locally against your own log files, with cross-correlation between Suricata and Zeek and built-in analytics for C2 beaconing, DGA, exfiltration, and lateral movement, so the analyst asks questions in plain language and the model does the pivoting.
