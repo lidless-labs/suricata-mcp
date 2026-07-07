@@ -1,13 +1,13 @@
 {
   "name": "suricata-mcp",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "MCP server for Suricata IDS/IPS EVE JSON log analysis and rule management",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "suricatactrl": "dist/cli.js",
-    "suricatactl": "dist/cli.js",
-    "suricata-mcp": "dist/mcp-bin.js"
+    "suricatactrl": "./dist/cli.js",
+    "suricatactl": "./dist/cli.js",
+    "suricata-mcp": "./dist/mcp-bin.js"
   },
   "scripts": {
     "build": "tsup",
