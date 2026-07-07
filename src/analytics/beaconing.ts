@@ -4,7 +4,7 @@ import type { QueryEngine } from "../query/engine.js";
 import type { FlowEvent } from "../types.js";
 import { inTimeRange } from "../query/filters.js";
 
-interface BeaconCandidate {
+export interface BeaconCandidate {
   srcIp: string;
   dstIp: string;
   dstPort: number;
@@ -89,80 +89,16 @@ export function registerBeaconingTools(
           { timeRange: { timeFrom: args.timeFrom, timeTo: args.timeTo } },
         );
 
-        // Group flows by src->dst:port
-        const groups = new Map<string, { timestamps: number[]; srcIp: string; dstIp: string; dstPort: number }>();
-
-        for (const flow of flows) {
-          if (!flow.src_ip || !flow.dest_ip) continue;
-          const key = `${flow.src_ip}->${flow.dest_ip}:${flow.dest_port ?? 0}`;
-          let group = groups.get(key);
-          if (!group) {
-            group = {
-              timestamps: [],
-              srcIp: flow.src_ip,
-              dstIp: flow.dest_ip,
-              dstPort: flow.dest_port ?? 0,
-            };
-            groups.set(key, group);
-          }
-          group.timestamps.push(new Date(flow.timestamp).getTime());
-        }
-
-        const candidates: BeaconCandidate[] = [];
-
-        for (const group of groups.values()) {
-          if (group.timestamps.length < minConns) continue;
-
-          group.timestamps.sort((a, b) => a - b);
-
-          const intervals: number[] = [];
-          for (let i = 1; i < group.timestamps.length; i++) {
-            intervals.push((group.timestamps[i] - group.timestamps[i - 1]) / 1000);
-          }
-
-          if (intervals.length === 0) continue;
-
-          const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-          if (avgInterval < 1) continue; // Skip sub-second intervals
-
-          const stdDev = calculateStdDev(intervals, avgInterval);
-          const jitter = calculateJitter(intervals);
-          const jitterPercent = avgInterval > 0 ? (jitter / avgInterval) * 100 : 100;
-
-          if (jitterPercent > jitterThresh) continue;
-
-          const confidence = calculateConfidence(
-            group.timestamps.length,
-            jitter,
-            avgInterval,
-            stdDev,
-          );
-
-          if (confidence >= 20) {
-            candidates.push({
-              srcIp: group.srcIp,
-              dstIp: group.dstIp,
-              dstPort: group.dstPort,
-              connectionCount: group.timestamps.length,
-              intervals: intervals.slice(0, 10),
-              avgInterval: Math.round(avgInterval * 100) / 100,
-              stdDevInterval: Math.round(stdDev * 100) / 100,
-              jitter: Math.round(jitterPercent * 100) / 100,
-              confidence,
-            });
-          }
-        }
-
-        candidates.sort((a, b) => b.confidence - a.confidence);
+        const result = detectBeaconingCandidates(flows, minConns, jitterThresh);
 
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
               totalFlowsAnalyzed: flows.length,
-              uniquePairsAnalyzed: groups.size,
-              beaconCandidates: candidates.length,
-              candidates: candidates.slice(0, 20),
+              uniquePairsAnalyzed: result.uniquePairsAnalyzed,
+              beaconCandidates: result.candidates.length,
+              candidates: result.candidates.slice(0, 20),
             }, null, 2),
           }],
         };
@@ -174,4 +110,80 @@ export function registerBeaconingTools(
       }
     },
   );
+}
+
+export function detectBeaconingCandidates(
+  flows: FlowEvent[],
+  minConnections = 10,
+  jitterThreshold = 20,
+): { uniquePairsAnalyzed: number; candidates: BeaconCandidate[] } {
+  const groups = new Map<string, { timestamps: number[]; srcIp: string; dstIp: string; dstPort: number }>();
+
+  for (const flow of flows) {
+    if (!flow.src_ip || !flow.dest_ip) continue;
+    const key = `${flow.src_ip}->${flow.dest_ip}:${flow.dest_port ?? 0}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        timestamps: [],
+        srcIp: flow.src_ip,
+        dstIp: flow.dest_ip,
+        dstPort: flow.dest_port ?? 0,
+      };
+      groups.set(key, group);
+    }
+    group.timestamps.push(new Date(flow.timestamp).getTime());
+  }
+
+  const candidates: BeaconCandidate[] = [];
+
+  for (const group of groups.values()) {
+    if (group.timestamps.length < minConnections) continue;
+
+    group.timestamps.sort((a, b) => a - b);
+
+    const intervals: number[] = [];
+    for (let i = 1; i < group.timestamps.length; i++) {
+      intervals.push((group.timestamps[i] - group.timestamps[i - 1]) / 1000);
+    }
+
+    if (intervals.length === 0) continue;
+
+    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    if (avgInterval < 1) continue;
+
+    const stdDev = calculateStdDev(intervals, avgInterval);
+    const jitter = calculateJitter(intervals);
+    const jitterPercent = avgInterval > 0 ? (jitter / avgInterval) * 100 : 100;
+
+    if (jitterPercent > jitterThreshold) continue;
+
+    const confidence = calculateConfidence(
+      group.timestamps.length,
+      jitter,
+      avgInterval,
+      stdDev,
+    );
+
+    if (confidence >= 20) {
+      candidates.push({
+        srcIp: group.srcIp,
+        dstIp: group.dstIp,
+        dstPort: group.dstPort,
+        connectionCount: group.timestamps.length,
+        intervals: intervals.slice(0, 10),
+        avgInterval: Math.round(avgInterval * 100) / 100,
+        stdDevInterval: Math.round(stdDev * 100) / 100,
+        jitter: Math.round(jitterPercent * 100) / 100,
+        confidence,
+      });
+    }
+  }
+
+  candidates.sort((a, b) => b.confidence - a.confidence);
+
+  return {
+    uniquePairsAnalyzed: groups.size,
+    candidates,
+  };
 }

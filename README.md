@@ -85,7 +85,28 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 }
 ```
 
-If you installed from source, set `"command": "suricata-mcp"` (global npm install) or `"command": "node"` with `"args": ["/absolute/path/to/suricata-mcp/dist/index.js"]`.
+If you installed from source, set `"command": "suricata-mcp"` (global npm install) or `"command": "node"` with `"args": ["/absolute/path/to/suricata-mcp/dist/mcp-bin.js"]`.
+
+## suricatactrl CLI
+
+`suricatactrl` is the operator CLI for quick local triage. The package also keeps `suricatactl` as a compatibility alias. `suricata-mcp` remains the MCP stdio adapter for AI clients.
+
+```bash
+npx -y --package suricata-mcp suricatactrl status --json
+SURICATA_EVE_LOG=./test-data/eve.json SURICATA_EVE_ARCHIVE=./test-data npx -y --package suricata-mcp suricatactrl alerts query --severity 1 --limit 5
+SURICATA_EVE_LOG=./test-data/eve.json SURICATA_EVE_ARCHIVE=./test-data npx -y --package suricata-mcp suricatactrl flows query --app-proto http --json
+SURICATA_EVE_LOG=./test-data/eve.json SURICATA_EVE_ARCHIVE=./test-data npx -y --package suricata-mcp suricatactrl dns query --query evil-domain
+```
+
+From a source checkout after `npm run build`:
+
+```bash
+SURICATA_EVE_LOG=./test-data/eve.json SURICATA_EVE_ARCHIVE=./test-data node dist/cli.js status
+SURICATA_EVE_LOG=./test-data/eve.json SURICATA_EVE_ARCHIVE=./test-data node dist/cli.js alerts query --sid 2024001
+node dist/cli.js mcp
+```
+
+The first CLI slice is read-only. It covers setup checks, alert queries, flow queries, DNS queries, and beaconing detection with `--json` output for scripts. Use the MCP server for the full tool set, including rule mutation, Unix socket commands, PCAP workflows, cross-sensor correlation, MISP, and TheHive.
 
 ### Claude Code
 
@@ -101,12 +122,12 @@ Add `--scope user` to make it available from any directory instead of only the c
 
 ### OpenClaw
 
-If you're running from a source checkout instead of the npm-installed binary, point `command`/`args` at the built `dist/index.js`:
+If you're running from a source checkout instead of the npm-installed binary, point `command`/`args` at the built `dist/mcp-bin.js`:
 
 ```bash
 openclaw mcp set suricata '{
   "command": "node",
-  "args": ["/absolute/path/to/suricata-mcp/dist/index.js"],
+  "args": ["/absolute/path/to/suricata-mcp/dist/mcp-bin.js"],
   "env": {
     "SURICATA_EVE_LOG": "/opt/nids/suricata/logs/eve.json",
     "SURICATA_RULES_DIR": "/opt/nids/suricata/rules",
@@ -157,7 +178,7 @@ Or, when running from a source checkout instead of the published package:
 mcp_servers:
   suricata:
     command: "node"
-    args: ["/absolute/path/to/suricata-mcp/dist/index.js"]
+    args: ["/absolute/path/to/suricata-mcp/dist/mcp-bin.js"]
     env:
       SURICATA_EVE_LOG: "/opt/nids/suricata/logs/eve.json"
       SURICATA_RULES_DIR: "/opt/nids/suricata/rules"
@@ -189,7 +210,7 @@ codex mcp add suricata \
   --env SURICATA_EVE_LOG=/opt/nids/suricata/logs/eve.json \
   --env SURICATA_RULES_DIR=/opt/nids/suricata/rules \
   --env ZEEK_LOGS_DIR=/opt/nids/zeek/logs \
-  -- node /absolute/path/to/suricata-mcp/dist/index.js
+  -- node /absolute/path/to/suricata-mcp/dist/mcp-bin.js
 ```
 
 Codex writes the entry to `~/.codex/config.toml` under `[mcp_servers.suricata]`. Verify with:
@@ -203,7 +224,7 @@ codex mcp list
 ```bash
 SURICATA_EVE_LOG=/var/log/suricata/eve.json \
 ZEEK_LOGS_DIR=/opt/zeek/logs \
-node dist/index.js
+node dist/mcp-bin.js
 ```
 
 ### Development
