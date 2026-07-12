@@ -25,6 +25,10 @@ suricata-mcp is a Model Context Protocol (MCP) server for network security monit
 
 suricata-mcp is an MCP server for **Suricata** IDS/IPS and **Zeek** network-security monitoring. It reads Suricata **EVE JSON** alerts, flows, and protocol records (DNS, HTTP, TLS/JA3/JA4, SSH, fileinfo, anomalies) and Zeek TSV logs straight off disk, then exposes them to an AI client as MCP tools for querying, aggregation, timelines, host and alert investigation, and cross-sensor correlation. On top of the raw telemetry it ships intrusion-detection analytics, C2 beaconing detection, DGA domain detection via Shannon entropy, data-exfiltration detection, and lateral-movement detection, plus Suricata rule management and optional threat-intel pivots into MISP and TheHive. The server is **read-only by default**: every analysis tool works out of the box, and the handful of tools that change a live IDS or shell out stay disabled until you explicitly opt in. It speaks MCP over stdio, so it drops into Claude Desktop, Claude Code, Codex CLI, OpenClaw, Hermes, or any MCP-capable agent.
 
+![suricata-mcp alert investigation workflow: a Suricata alert fans into EVE JSON and Zeek logs, then correlation and analytics produce a triage brief](docs/assets/alert-investigation-workflow.svg)
+
+Generated from [`docs/assets/workflows/alert-investigation.json`](docs/assets/workflows/alert-investigation.json) with the [Lidless fleet-kit workflow renderer](https://github.com/lidless-labs/lidless-fleet-kit/tree/main/workflow).
+
 ## Installation
 
 Most clients can run the published package directly with `npx -y suricata-mcp` (see [Quickstart](#quickstart)). To work from source instead:

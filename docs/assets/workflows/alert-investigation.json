@@ -1,0 +1,29 @@
+{
+  "kicker": "SURICATA-MCP · ALERT INVESTIGATION",
+  "title": "pivot from one alert to the surrounding traffic",
+  "subtitle": "The server reads local Suricata EVE and Zeek logs, correlates adjacent network evidence, then returns an analyst-ready path without changing sensors.",
+  "footer": "local logs · read-only by default · opt-in rule writes",
+  "lanes": [
+    { "id": "signal", "label": "SIGNAL" },
+    { "id": "telemetry", "label": "TELEMETRY" },
+    { "id": "analysis", "label": "ANALYSIS" },
+    { "id": "output", "label": "OUTPUT" }
+  ],
+  "nodes": [
+    { "id": "alert", "lane": "signal", "row": 0, "title": "suricata alert", "meta": "sid, host, flow, timestamp", "status": "source" },
+    { "id": "eve", "lane": "telemetry", "row": 0, "title": "EVE JSON", "meta": "alerts, DNS, HTTP, TLS" },
+    { "id": "zeek", "lane": "telemetry", "row": 1, "title": "Zeek logs", "meta": "conn, dns, files, ssl" },
+    { "id": "correlate", "lane": "analysis", "row": 0, "title": "correlate traffic", "meta": "timeline, host, IOC pivots", "status": "focus" },
+    { "id": "hunt", "lane": "analysis", "row": 1, "title": "run analytics", "meta": "beaconing, DGA, exfil" },
+    { "id": "brief", "lane": "output", "row": 0, "title": "triage brief", "meta": "evidence and next steps" }
+  ],
+  "edges": [
+    { "from": "alert", "to": "eve" },
+    { "from": "eve", "to": "zeek" },
+    { "from": "eve", "to": "correlate" },
+    { "from": "zeek", "to": "correlate" },
+    { "from": "correlate", "to": "hunt" },
+    { "from": "correlate", "to": "brief" },
+    { "from": "hunt", "to": "brief" }
+  ]
+}
