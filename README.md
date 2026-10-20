@@ -353,8 +353,10 @@ acting. The gated tools are:
 - `suricata_reload_rules_docker` - runs `suricata-update` + `SIGUSR2` against the
   live container.
 - `pcap_replay_suricata` / `pcap_replay_zeek` - replay a PCAP through the engine.
-  Filenames are basename-sanitized, rejected if they begin with `-`
-  (option-injection), and concurrent replays are capped.
+  Filenames must be a bare name of letters, digits, `.`, `-`, and `_` (anything
+  else is rejected), are rejected if they begin with `-` (option-injection), and
+  concurrent replays are capped. Docker is invoked with argv arrays, never a
+  shell.
 
 Threat-intel HTTP calls (MISP/TheHive) use `redirect: "manual"`, so a 3xx from a
 compromised or misconfigured endpoint is refused rather than followed with the

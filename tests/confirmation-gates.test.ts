@@ -5,16 +5,23 @@ import { join, resolve } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { SuricataConfig } from "../src/config.js";
 import { checkMutationAllowed } from "../src/tools/mutation.js";
-import { execAsync } from "../src/tools/exec.js";
+import { execFileAsync } from "../src/tools/exec.js";
 
 vi.mock("../src/tools/exec.js", () => ({
-  execAsync: vi.fn(),
+  execFileAsync: vi.fn(),
 }));
 
-const execMock = vi.mocked(execAsync);
+const execMock = vi.mocked(execFileAsync) as unknown as ReturnType<
+  typeof vi.fn<(file: string, args: string[], opts?: unknown) => Promise<{ stdout: string; stderr: string }>>
+>;
 
 beforeEach(() => {
-  execMock.mockReset().mockResolvedValue({ stdout: "", stderr: "" });
+  // The pid file read during a rules reload must look like a pid; every other
+  // call returns empty output.
+  execMock.mockReset().mockImplementation(async (_file, args) => ({
+    stdout: args.includes("cat") ? "4242\n" : "",
+    stderr: "",
+  }));
 });
 
 import { registerRuleTools } from "../src/tools/rules.js";
@@ -272,6 +279,57 @@ describe("Confirmation gates on destructive tools", () => {
     expect(await readFile(localPath, "utf-8")).toBe("# " + rule + "\n");
   });
 
+  it("suricata_toggle_rule does not write local.rules when the gate refuses", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "suricata-toggle-gate-refuse-"));
+    const localPath = join(dir, "local.rules");
+    const initial =
+      'alert tcp any any -> any any (msg:"toggle-blocked"; sid:1000104; rev:1;)\n';
+    await writeFile(localPath, initial);
+
+    const tools = registerGatedTool(
+      "suricata_toggle_rule",
+      createTestConfig({ rulesDir: dir, allowMutation: true }),
+    );
+
+    const unconfirmed = await tools.get("suricata_toggle_rule")!({
+      sid: 1000104,
+      enable: false,
+    });
+    expect(unconfirmed.isError).toBe(true);
+    expectConfirmGateError(unconfirmed.content[0].text);
+    expect(await readFile(localPath, "utf-8")).toBe(initial);
+
+    const explicitFalse = await tools.get("suricata_toggle_rule")!({
+      sid: 1000104,
+      enable: false,
+      confirm: false,
+    });
+    expect(explicitFalse.isError).toBe(true);
+    expect(await readFile(localPath, "utf-8")).toBe(initial);
+  });
+
+  it("suricata_toggle_rule does not write local.rules when mutation is disabled", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "suricata-toggle-disabled-"));
+    const localPath = join(dir, "local.rules");
+    const initial =
+      'alert tcp any any -> any any (msg:"toggle-disabled"; sid:1000105; rev:1;)\n';
+    await writeFile(localPath, initial);
+
+    const tools = registerGatedTool(
+      "suricata_toggle_rule",
+      createTestConfig({ rulesDir: dir, allowMutation: false }),
+    );
+
+    const result = await tools.get("suricata_toggle_rule")!({
+      sid: 1000105,
+      enable: false,
+      confirm: true,
+    });
+    expect(result.isError).toBe(true);
+    expectMutationDisabledError(result.content[0].text);
+    expect(await readFile(localPath, "utf-8")).toBe(initial);
+  });
+
   it("suricata_reload_rules_docker proceeds past the gate when confirmed", async () => {
     const tools = registerGatedTool(
       "suricata_reload_rules_docker",
@@ -283,8 +341,11 @@ describe("Confirmation gates on destructive tools", () => {
     });
 
     expect(result.isError).not.toBe(true);
-    expect(execMock).toHaveBeenCalledTimes(1);
-    expect(execMock.mock.calls[0][0]).toContain("suricata-update");
+    expect(execMock.mock.calls.map(([file, args]) => [file, ...args])).toEqual([
+      ["docker", "exec", "suricata", "suricata-update"],
+      ["docker", "exec", "suricata", "cat", "/var/run/suricata.pid"],
+      ["docker", "exec", "suricata", "kill", "-USR2", "4242"],
+    ]);
     const data = JSON.parse(result.content[0].text);
     expect(data.status).toBe("success");
   });
@@ -333,7 +394,11 @@ describe("Confirmation gates on destructive tools", () => {
 
     expect(result.isError).not.toBe(true);
     expect(execMock).toHaveBeenCalledTimes(1);
-    expect(execMock.mock.calls[0][0]).toContain("gate-test.pcap");
+    expect(execMock.mock.calls[0]).toEqual([
+      "docker",
+      ["exec", "suricata", "suricata", "-r", "/pcaps/gate-test.pcap", "-l", "/var/log/suricata/"],
+      { timeout: 120000 },
+    ]);
     const data = JSON.parse(result.content[0].text);
     expect(data.status).toBe("completed");
   });
@@ -354,7 +419,11 @@ describe("Confirmation gates on destructive tools", () => {
 
     expect(result.isError).not.toBe(true);
     expect(execMock).toHaveBeenCalledTimes(1);
-    expect(execMock.mock.calls[0][0]).toContain("gate-test.pcap");
+    expect(execMock.mock.calls[0]).toEqual([
+      "docker",
+      ["exec", "zeek", "/usr/local/zeek/bin/zeek", "-r", "/pcaps/gate-test.pcap"],
+      { timeout: 120000 },
+    ]);
     const data = JSON.parse(result.content[0].text);
     expect(data.status).toBe("completed");
   });
@@ -398,5 +467,83 @@ describe("Confirmation gates on destructive tools", () => {
 
     expect(result.isError).toBe(true);
     expectConfirmGateError(result.content[0].text);
+  });
+});
+
+describe("Command execution uses argv arrays, never a shell", () => {
+  const HOSTILE_NAMES = [
+    "a;touch pwned.pcap",
+    "a$(id).pcap",
+    "a`id`.pcap",
+    "a|b.pcap",
+    "a&&b.pcap",
+    "a b.pcap",
+    "../escape.pcap",
+    "sub/dir.pcap",
+  ];
+
+  describe.each(["pcap_replay_suricata", "pcap_replay_zeek"] as const)("%s", (toolName) => {
+    it.each(HOSTILE_NAMES)("rejects hostile filename %j without executing anything", async (filename) => {
+      const dir = await mkdtemp(join(tmpdir(), "suricata-pcap-inject-"));
+      const tools = registerGatedTool(
+        toolName,
+        createTestConfig({ pcapDir: dir, allowMutation: true }),
+      );
+
+      const result = await tools.get(toolName)!({ filename, confirm: true });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Invalid filename");
+      expect(execMock).not.toHaveBeenCalled();
+    });
+
+    it("passes a valid filename as exactly one argv element", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "suricata-pcap-argv-"));
+      await writeFile(join(dir, "ok_1.2-3.pcap"), "");
+      const tools = registerGatedTool(
+        toolName,
+        createTestConfig({ pcapDir: dir, allowMutation: true }),
+      );
+
+      const result = await tools.get(toolName)!({ filename: "ok_1.2-3.pcap", confirm: true });
+
+      expect(result.isError).not.toBe(true);
+      expect(execMock).toHaveBeenCalledTimes(1);
+      const [file, args] = execMock.mock.calls[0];
+      expect(file).toBe("docker");
+      expect(Array.isArray(args)).toBe(true);
+      expect(args.filter((a) => a.includes("ok_1.2-3.pcap"))).toEqual(["/pcaps/ok_1.2-3.pcap"]);
+    });
+  });
+
+  it("suricata_reload_rules_docker refuses a pid file that is not numeric and sends no signal", async () => {
+    execMock.mockReset().mockImplementation(async (_file, args) => ({
+      stdout: args.includes("cat") ? "1; touch /tmp/pwned\n" : "",
+      stderr: "",
+    }));
+    const tools = registerGatedTool(
+      "suricata_reload_rules_docker",
+      createTestConfig({ allowMutation: true }),
+    );
+
+    const result = await tools.get("suricata_reload_rules_docker")!({ confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("pid");
+    expect(execMock.mock.calls.some(([, args]) => args.includes("kill"))).toBe(false);
+  });
+
+  it("suricata_reload_rules_docker stops when suricata-update fails", async () => {
+    execMock.mockReset().mockRejectedValue(new Error("update failed"));
+    const tools = registerGatedTool(
+      "suricata_reload_rules_docker",
+      createTestConfig({ allowMutation: true }),
+    );
+
+    const result = await tools.get("suricata_reload_rules_docker")!({ confirm: true });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("Error reloading rules");
+    expect(execMock).toHaveBeenCalledTimes(1);
   });
 });

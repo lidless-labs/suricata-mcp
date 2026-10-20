@@ -7,7 +7,7 @@ import { loadAllRules } from "../parser/rules.js";
 import { matchesPartial } from "../query/filters.js";
 import { aggregate } from "../query/aggregation.js";
 import { checkMutationAllowed } from "./mutation.js";
-import { execAsync } from "./exec.js";
+import { execFileAsync } from "./exec.js";
 
 // Local rule SIDs must live in the operator-assigned range to avoid clobbering
 // vendor/ET rule SIDs. 1,000,000+ is the conventional local range.
@@ -254,8 +254,29 @@ export function registerRuleTools(
           return gate.response;
         }
 
-        const cmd = 'docker exec suricata suricata-update && docker exec suricata kill -USR2 $(docker exec suricata cat /var/run/suricata.pid)';
-        const { stdout, stderr } = await execAsync(cmd, { timeout: 60000 });
+        // Three argv-array steps, no shell. Each step only runs if the
+        // previous one succeeded (a rejected promise jumps to the catch below).
+        const update = await execFileAsync(
+          "docker",
+          ["exec", "suricata", "suricata-update"],
+          { timeout: 60000 },
+        );
+        const pidFile = await execFileAsync(
+          "docker",
+          ["exec", "suricata", "cat", "/var/run/suricata.pid"],
+          { timeout: 60000 },
+        );
+        const pid = pidFile.stdout.trim();
+        if (!/^\d+$/.test(pid)) {
+          return { content: [{ type: "text" as const, text: "Error reloading rules: unexpected contents in /var/run/suricata.pid." }], isError: true };
+        }
+        const signal = await execFileAsync(
+          "docker",
+          ["exec", "suricata", "kill", "-USR2", pid],
+          { timeout: 60000 },
+        );
+        const stdout = update.stdout + signal.stdout;
+        const stderr = update.stderr + signal.stderr;
 
         return {
           content: [{

@@ -1,19 +1,27 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { readdir, stat } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { join } from "node:path";
 import type { SuricataConfig } from "../config.js";
 import { checkMutationAllowed } from "./mutation.js";
-import { execAsync } from "./exec.js";
+import { execFileAsync } from "./exec.js";
 
 // Cap the number of replays running at once so a flood of requests can't
 // exhaust host resources by spawning unbounded `docker exec` processes.
 const MAX_CONCURRENT_REPLAYS = 2;
 let activeReplays = 0;
 
-function sanitizeFilename(name: string): string {
-  // Only allow alphanumeric, dash, underscore, dot
-  return basename(name).replace(/[^a-zA-Z0-9._-]/g, "");
+/**
+ * Validate a PCAP filename supplied by the caller. Only a bare filename made of
+ * alphanumerics, dot, dash, and underscore is accepted. Anything else (path
+ * separators, shell metacharacters, whitespace) is rejected rather than
+ * silently rewritten, so a request can never replay a different file than the
+ * one it named. Returns null when the name is not acceptable.
+ */
+function validateFilename(name: string): string | null {
+  if (!/^[A-Za-z0-9._-]+$/.test(name)) return null;
+  if (name === "." || name === "..") return null;
+  return name;
 }
 
 export function registerPcapTools(
@@ -75,9 +83,9 @@ export function registerPcapTools(
           return gate.response;
         }
 
-        const safe = sanitizeFilename(args.filename);
+        const safe = validateFilename(args.filename);
         if (!safe) {
-          return { content: [{ type: "text" as const, text: "Invalid filename." }], isError: true };
+          return { content: [{ type: "text" as const, text: "Invalid filename: use a bare filename containing only letters, digits, '.', '-', and '_'." }], isError: true };
         }
         // Reject names that would be parsed as a CLI option (e.g. "-r", "--help").
         if (safe.startsWith("-")) {
@@ -96,8 +104,11 @@ export function registerPcapTools(
 
         activeReplays++;
         try {
-          const cmd = `docker exec suricata suricata -r /pcaps/${safe} -l /var/log/suricata/`;
-          const { stdout, stderr } = await execAsync(cmd, { timeout: 120000 });
+          const { stdout, stderr } = await execFileAsync(
+            "docker",
+            ["exec", "suricata", "suricata", "-r", `/pcaps/${safe}`, "-l", "/var/log/suricata/"],
+            { timeout: 120000 },
+          );
 
           return {
             content: [{
@@ -137,9 +148,9 @@ export function registerPcapTools(
           return gate.response;
         }
 
-        const safe = sanitizeFilename(args.filename);
+        const safe = validateFilename(args.filename);
         if (!safe) {
-          return { content: [{ type: "text" as const, text: "Invalid filename." }], isError: true };
+          return { content: [{ type: "text" as const, text: "Invalid filename: use a bare filename containing only letters, digits, '.', '-', and '_'." }], isError: true };
         }
         // Reject names that would be parsed as a CLI option (e.g. "-r", "--help").
         if (safe.startsWith("-")) {
@@ -158,8 +169,11 @@ export function registerPcapTools(
 
         activeReplays++;
         try {
-          const cmd = `docker exec zeek /usr/local/zeek/bin/zeek -r /pcaps/${safe}`;
-          const { stdout, stderr } = await execAsync(cmd, { timeout: 120000 });
+          const { stdout, stderr } = await execFileAsync(
+            "docker",
+            ["exec", "zeek", "/usr/local/zeek/bin/zeek", "-r", `/pcaps/${safe}`],
+            { timeout: 120000 },
+          );
 
           return {
             content: [{
