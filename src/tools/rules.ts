@@ -13,6 +13,10 @@ import { execFileAsync } from "./exec.js";
 // vendor/ET rule SIDs. 1,000,000+ is the conventional local range.
 const LOCAL_SID_MIN = 1000000;
 
+// The whole reload (suricata-update, pid read, SIGUSR2) must finish within this
+// budget. Each step gets whatever time is left, not a fresh timeout.
+const RELOAD_TOTAL_TIMEOUT_MS = 60000;
+
 export function registerRuleTools(
   server: McpServer,
   config: SuricataConfig,
@@ -256,24 +260,35 @@ export function registerRuleTools(
 
         // Three argv-array steps, no shell. Each step only runs if the
         // previous one succeeded (a rejected promise jumps to the catch below).
+        // The steps share one overall deadline so the total stays within
+        // RELOAD_TOTAL_TIMEOUT_MS.
+        const deadline = Date.now() + RELOAD_TOTAL_TIMEOUT_MS;
+        const remaining = (): number => {
+          const left = deadline - Date.now();
+          if (left <= 0) {
+            throw new Error(`reload exceeded the ${RELOAD_TOTAL_TIMEOUT_MS / 1000}s overall timeout`);
+          }
+          return left;
+        };
         const update = await execFileAsync(
           "docker",
           ["exec", "suricata", "suricata-update"],
-          { timeout: 60000 },
+          { timeout: remaining() },
         );
         const pidFile = await execFileAsync(
           "docker",
           ["exec", "suricata", "cat", "/var/run/suricata.pid"],
-          { timeout: 60000 },
+          { timeout: remaining() },
         );
         const pid = pidFile.stdout.trim();
-        if (!/^\d+$/.test(pid)) {
+        // Positive, no leading zeros: "0" would signal the whole process group.
+        if (!/^[1-9]\d{0,9}$/.test(pid)) {
           return { content: [{ type: "text" as const, text: "Error reloading rules: unexpected contents in /var/run/suricata.pid." }], isError: true };
         }
         const signal = await execFileAsync(
           "docker",
           ["exec", "suricata", "kill", "-USR2", pid],
-          { timeout: 60000 },
+          { timeout: remaining() },
         );
         const stdout = update.stdout + signal.stdout;
         const stderr = update.stderr + signal.stderr;

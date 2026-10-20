@@ -533,6 +533,74 @@ describe("Command execution uses argv arrays, never a shell", () => {
     expect(execMock.mock.calls.some(([, args]) => args.includes("kill"))).toBe(false);
   });
 
+  it.each(["0", "007", "00", "12345678901", "-5"])(
+    "suricata_reload_rules_docker refuses pid %j and never calls kill",
+    async (badPid) => {
+      execMock.mockReset().mockImplementation(async (_file, args) => ({
+        stdout: args.includes("cat") ? `${badPid}\n` : "",
+        stderr: "",
+      }));
+      const tools = registerGatedTool(
+        "suricata_reload_rules_docker",
+        createTestConfig({ allowMutation: true }),
+      );
+
+      const result = await tools.get("suricata_reload_rules_docker")!({ confirm: true });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("pid");
+      expect(execMock.mock.calls.some(([, args]) => args.includes("kill"))).toBe(false);
+    },
+  );
+
+  it("suricata_reload_rules_docker shares one 60s deadline across its steps", async () => {
+    let now = 1_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      const timeouts: number[] = [];
+      execMock.mockReset().mockImplementation(async (_file, args, opts) => {
+        timeouts.push((opts as { timeout: number }).timeout);
+        // Simulated clock: the first step (suricata-update) takes 45s.
+        if (args.includes("suricata-update")) now += 45000;
+        return { stdout: args.includes("cat") ? "4242\n" : "", stderr: "" };
+      });
+      const tools = registerGatedTool(
+        "suricata_reload_rules_docker",
+        createTestConfig({ allowMutation: true }),
+      );
+
+      const result = await tools.get("suricata_reload_rules_docker")!({ confirm: true });
+
+      expect(result.isError).not.toBe(true);
+      expect(timeouts).toEqual([60000, 15000, 15000]);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("suricata_reload_rules_docker refuses to start a later step once the deadline has passed", async () => {
+    let now = 1_000_000;
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      execMock.mockReset().mockImplementation(async (_file, args) => {
+        if (args.includes("suricata-update")) now += 61000;
+        return { stdout: "", stderr: "" };
+      });
+      const tools = registerGatedTool(
+        "suricata_reload_rules_docker",
+        createTestConfig({ allowMutation: true }),
+      );
+
+      const result = await tools.get("suricata_reload_rules_docker")!({ confirm: true });
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("overall timeout");
+      expect(execMock).toHaveBeenCalledTimes(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it("suricata_reload_rules_docker stops when suricata-update fails", async () => {
     execMock.mockReset().mockRejectedValue(new Error("update failed"));
     const tools = registerGatedTool(
