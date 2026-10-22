@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
+import { checkMutationAllowed } from "./mutation.js";
 
 /**
  * Thrown when an intel endpoint responds with a redirect. We use
@@ -152,14 +153,18 @@ export function registerThreatIntelTools(
     "thehive_create_case",
     "Create a new case in TheHive from investigation findings",
     {
+      confirm: z.boolean().optional().describe("Must be true to create in TheHive"),
       title: z.string().describe("Case title"),
       description: z.string().describe("Case description (supports markdown)"),
       severity: z.number().min(1).max(4).optional().describe("1=Low, 2=Medium, 3=High, 4=Critical"),
       tlp: z.number().min(0).max(4).optional().describe("TLP level: 0=Clear, 1=Green, 2=Amber, 3=Amber+Strict, 4=Red"),
       tags: z.array(z.string()).optional().describe("Case tags"),
     },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     async (args) => {
       try {
+        const gate = checkMutationAllowed(config, args, "create a TheHive case");
+        if (!gate.allowed) return gate.response;
         if (!config.thehiveUrl || !config.thehiveApiKey) {
           return { content: [{ type: "text" as const, text: "TheHive not configured. Set THEHIVE_URL and THEHIVE_API_KEY." }], isError: true };
         }
@@ -225,6 +230,7 @@ export function registerThreatIntelTools(
     "thehive_create_alert",
     "Push a Suricata alert to TheHive as an alert for triage",
     {
+      confirm: z.boolean().optional().describe("Must be true to create in TheHive"),
       title: z.string().describe("Alert title"),
       description: z.string().describe("Alert description"),
       severity: z.number().min(1).max(4).optional().describe("1=Low, 2=Medium, 3=High, 4=Critical"),
@@ -239,8 +245,11 @@ export function registerThreatIntelTools(
         tlp: z.number().optional().describe("TLP level"),
       })).optional().describe("Observable artifacts"),
     },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     async (args) => {
       try {
+        const gate = checkMutationAllowed(config, args, "create a TheHive alert");
+        if (!gate.allowed) return gate.response;
         if (!config.thehiveUrl || !config.thehiveApiKey) {
           return { content: [{ type: "text" as const, text: "TheHive not configured. Set THEHIVE_URL and THEHIVE_API_KEY." }], isError: true };
         }

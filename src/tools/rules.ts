@@ -122,6 +122,7 @@ export function registerRuleTools(
       rule: z.string().describe("Complete Suricata rule string (e.g., alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"...\"; sid:...; rev:1;))"),
       confirm: z.boolean().optional().describe("Must be true to write the rule (destructive opt-in)"),
     },
+    { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     async (args) => {
       try {
         if (!config.rulesDir) {
@@ -131,6 +132,10 @@ export function registerRuleTools(
         const gate = checkMutationAllowed(config, args, "create a Suricata rule");
         if (!gate.allowed) {
           return gate.response;
+        }
+
+        if (/[\r\n]/.test(args.rule)) {
+          return { content: [{ type: "text" as const, text: "Rule must be a single line without newline or carriage return characters." }], isError: true };
         }
 
         // Basic validation

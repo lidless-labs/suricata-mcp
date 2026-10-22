@@ -2,6 +2,7 @@ import { createConnection } from "node:net";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
+import { checkMutationAllowed } from "../tools/mutation.js";
 
 function sendCommand(
   socketPath: string,
@@ -43,10 +44,13 @@ export function registerSocketTools(
 ): void {
   server.tool(
     "suricata_reload_rules",
-    "Trigger a live rule reload via Suricata Unix socket",
-    {},
-    async () => {
+    "Trigger a live rule reload via Suricata Unix socket (requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    { confirm: z.boolean().optional().describe("Must be true to reload rules") },
+    { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    async (args) => {
       try {
+        const gate = checkMutationAllowed(config, args, "reload Suricata rules");
+        if (!gate.allowed) return gate.response;
         if (!config.unixSocket) {
           return {
             content: [{ type: "text" as const, text: "Unix socket not configured. Set SURICATA_UNIX_SOCKET." }],
