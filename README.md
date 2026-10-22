@@ -333,7 +333,7 @@ Set environment variables to point at your NIDS installation:
 | `MISP_API_KEY` | _(none)_ | MISP API key |
 | `THEHIVE_URL` | _(none)_ | TheHive instance URL |
 | `THEHIVE_API_KEY` | _(none)_ | TheHive API key |
-| `SURICATA_ALLOW_MUTATION` | _(off)_ | Set to `1` to enable mutating tools (rule writes, ruleset reload, PCAP replay). Off by default. |
+| `SURICATA_ALLOW_MUTATION` | _(off)_ | Set to `1` to enable mutating tools (rule writes, ruleset reload, PCAP replay, TheHive creation). Off by default. |
 
 ### Mutating tools (opt-in)
 
@@ -348,8 +348,11 @@ acting. The gated tools are:
 
 - `suricata_create_rule` - appends to `local.rules`. Additionally enforces a
   local SID range (`sid >= 1000000`) and rejects SIDs that collide with the
-  loaded ruleset.
+  loaded ruleset. Rule text must be a single line with no newline or carriage
+  return characters.
 - `suricata_toggle_rule` - enables or disables a rule by SID in `local.rules`.
+- `suricata_reload_rules` - reloads rules through the Unix socket.
+- `thehive_create_case` / `thehive_create_alert` - creates a case or alert in TheHive.
 - `suricata_reload_rules_docker` - runs `suricata-update` + `SIGUSR2` against the
   live container.
 - `pcap_replay_suricata` / `pcap_replay_zeek` - replay a PCAP through the engine.

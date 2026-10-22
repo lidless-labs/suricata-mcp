@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -16,6 +16,7 @@ const execMock = vi.mocked(execFileAsync) as unknown as ReturnType<
 >;
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "example", title: "example" }), { status: 201 })));
   // The pid file read during a rules reload must look like a pid; every other
   // call returns empty output.
   execMock.mockReset().mockImplementation(async (_file, args) => ({
@@ -24,8 +25,12 @@ beforeEach(() => {
   }));
 });
 
+afterEach(() => vi.unstubAllGlobals());
+
 import { registerRuleTools } from "../src/tools/rules.js";
 import { registerPcapTools } from "../src/tools/pcap.js";
+import { registerSocketTools } from "../src/socket/client.js";
+import { registerThreatIntelTools } from "../src/tools/threatintel.js";
 
 const TEST_DATA_DIR = resolve(import.meta.dirname, "../test-data");
 
@@ -40,13 +45,13 @@ function createTestConfig(overrides: Partial<SuricataConfig> = {}): SuricataConf
     eveArchiveDir: TEST_DATA_DIR,
     rulesDir: TEST_DATA_DIR,
     maxResults: 1000,
-    unixSocket: null,
+    unixSocket: join(TEST_DATA_DIR, "example.sock"),
     zeekLogsDir: null,
     pcapDir: null,
     mispUrl: null,
     mispApiKey: null,
-    thehiveUrl: null,
-    thehiveApiKey: null,
+    thehiveUrl: "https://thehive.example.com",
+    thehiveApiKey: "example",
     allowMutation: false,
     ...overrides,
   };
@@ -73,7 +78,11 @@ function registerGatedTool(
   const server = new McpServer({ name: "test", version: "1.0.0" });
   const tools = captureTools(server);
 
-  if (toolName.startsWith("suricata_")) {
+  if (toolName === "suricata_reload_rules") {
+    registerSocketTools(server, config);
+  } else if (toolName.startsWith("thehive_")) {
+    registerThreatIntelTools(server, config);
+  } else if (toolName.startsWith("suricata_")) {
     registerRuleTools(server, config);
   } else if (toolName.startsWith("pcap_")) {
     registerPcapTools(server, config);
@@ -89,6 +98,9 @@ const GATED_TOOLS = [
   "suricata_create_rule",
   "suricata_toggle_rule",
   "suricata_reload_rules_docker",
+  "suricata_reload_rules",
+  "thehive_create_case",
+  "thehive_create_alert",
   "pcap_replay_suricata",
   "pcap_replay_zeek",
 ] as const;
@@ -101,6 +113,9 @@ const UNCONFIRMED_ARGS: Record<GatedToolName, Record<string, unknown>> = {
   },
   suricata_toggle_rule: { sid: 1000100, enable: false },
   suricata_reload_rules_docker: {},
+  suricata_reload_rules: {},
+  thehive_create_case: { title: "example", description: "example" },
+  thehive_create_alert: { title: "example", description: "example" },
   pcap_replay_suricata: { filename: "sample.pcap" },
   pcap_replay_zeek: { filename: "sample.pcap" },
 };
@@ -207,6 +222,7 @@ describe("Confirmation gates on destructive tools", () => {
 
       expect(result.isError).toBe(true);
       expectMutationDisabledError(result.content[0].text);
+      expect(fetch).not.toHaveBeenCalled();
     });
   });
 
@@ -613,5 +629,32 @@ describe("Command execution uses argv arrays, never a shell", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Error reloading rules");
     expect(execMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("Single-line rule writes", () => {
+  it.each(["\n", "\r", "\r\n"])("refuses a rule containing %j without changing local.rules", async (separator) => {
+    const dir = await mkdtemp(join(tmpdir(), "example-rules-"));
+    const localPath = join(dir, "local.rules");
+    const initial = "# example\n";
+    await writeFile(localPath, initial);
+    const tools = registerGatedTool("suricata_create_rule", createTestConfig({ rulesDir: dir, allowMutation: true }));
+    const rule = 'alert tcp any any -> any any (msg:"example"; sid:1000102; rev:1;)';
+    const result = await tools.get("suricata_create_rule")!({ rule: separator + rule, confirm: true });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain("single line");
+    expect(await readFile(localPath, "utf-8")).toBe(initial);
+  });
+});
+
+
+describe("Confirmed TheHive creation", () => {
+  it.each(["thehive_create_case", "thehive_create_alert"])("allows %s only with both guards", async (toolName) => {
+    const tools = registerGatedTool(toolName, createTestConfig({ allowMutation: true }));
+    const result = await tools.get(toolName)!({ title: "example", description: "example", confirm: true });
+    expect(result.isError).not.toBe(true);
+    expect(JSON.parse(result.content[0].text).status).toBe("created");
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });
