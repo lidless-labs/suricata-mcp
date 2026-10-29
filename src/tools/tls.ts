@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerTlsTools(
 ): void {
   server.tool(
     "suricata_query_tls",
-    "Search TLS handshake logs with JA3/JA4 fingerprinting",
+    externalDescription("Search TLS handshake logs with JA3/JA4 fingerprinting"),
     {
       sni: z.string().optional().describe("Server Name Indication (partial match)"),
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
@@ -47,11 +48,11 @@ export function registerTlsTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: events.length, tls: events }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: events.length, tls: events }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying TLS: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying TLS: ${error}`) }],
           isError: true,
         };
       }

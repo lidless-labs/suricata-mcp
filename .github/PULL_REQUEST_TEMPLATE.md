@@ -30,6 +30,6 @@ Closes #
 - [ ] Updated `README.md` (tool tables, counts, config) if the surface changed
 - [ ] No real hostnames, IP addresses, account names, tokens, or unredacted absolute paths in code, tests, fixtures, or this PR (use 192.0.2.x and generic names; the content-guard check will fail otherwise)
 - [ ] No new runtime dependencies (or justified above)
-- [ ] Conventional commit messages, each ending with `Co-Authored-By: Claude Duet <noreply@anthropic.com>`
+- [ ] Conventional commit messages, each ending with `Co-Authored-By: Claude <noreply@anthropic.com>` <!-- content-guard: allow pii/email -->
 
 Opened by Claude Duet

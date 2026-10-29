@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerFileTools(
 ): void {
   server.tool(
     "suricata_query_fileinfo",
-    "Search file extraction metadata from Suricata",
+    externalDescription("Search file extraction metadata from Suricata"),
     {
       filename: z.string().optional().describe("Filename (partial match)"),
       magic: z.string().optional().describe("File magic/type (partial match)"),
@@ -42,11 +43,11 @@ export function registerFileTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: events.length, files: events }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: events.length, files: events }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying files: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying files: ${error}`) }],
           isError: true,
         };
       }

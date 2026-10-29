@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -20,7 +21,7 @@ export function registerInvestigationTools(
 ): void {
   server.tool(
     "suricata_investigate_host",
-    "Comprehensive investigation across all EVE event types for a specific host",
+    externalDescription("Comprehensive investigation across all EVE event types for a specific host"),
     {
       ip: z.string().describe("IP address to investigate"),
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
@@ -93,7 +94,7 @@ export function registerInvestigationTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               ip: args.ip,
               alerts: alertSummary,
               flows: flowSummary,
@@ -108,7 +109,7 @@ export function registerInvestigationTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error investigating host: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error investigating host: ${error}`) }],
           isError: true,
         };
       }
@@ -117,7 +118,7 @@ export function registerInvestigationTools(
 
   server.tool(
     "suricata_investigate_alert",
-    "Deep investigation of a specific alert, correlating with flow and protocol data",
+    externalDescription("Deep investigation of a specific alert, correlating with flow and protocol data"),
     {
       signatureId: z.number().describe("Suricata rule SID"),
       srcIp: z.string().optional().describe("Source IP to filter by"),
@@ -143,7 +144,7 @@ export function registerInvestigationTools(
 
         if (alerts.length === 0) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ message: "No alerts found for this signature" }) }],
+            content: [{ type: "text" as const, text: externalJson({ message: "No alerts found for this signature" }) }],
           };
         }
 
@@ -176,7 +177,7 @@ export function registerInvestigationTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               signatureId: args.signatureId,
               signature: alerts[0].alert.signature,
               category: alerts[0].alert.category,
@@ -194,7 +195,7 @@ export function registerInvestigationTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error investigating alert: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error investigating alert: ${error}`) }],
           isError: true,
         };
       }

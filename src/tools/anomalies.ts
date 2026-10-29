@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerAnomalyTools(
 ): void {
   server.tool(
     "suricata_query_anomalies",
-    "Search protocol anomalies detected by Suricata",
+    externalDescription("Search protocol anomalies detected by Suricata"),
     {
       type: z.string().optional().describe("Anomaly type (partial match)"),
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
@@ -35,11 +36,11 @@ export function registerAnomalyTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: events.length, anomalies: events }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: events.length, anomalies: events }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying anomalies: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying anomalies: ${error}`) }],
           isError: true,
         };
       }

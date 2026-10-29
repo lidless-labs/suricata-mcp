@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -11,7 +12,7 @@ export function registerFlowTools(
 ): void {
   server.tool(
     "suricata_query_flows",
-    "Search network flow records from Suricata",
+    externalDescription("Search network flow records from Suricata"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       dstIp: z.string().optional().describe("Destination IP (supports CIDR)"),
@@ -50,11 +51,11 @@ export function registerFlowTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: flows.length, flows }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: flows.length, flows }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying flows: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying flows: ${error}`) }],
           isError: true,
         };
       }
@@ -63,7 +64,7 @@ export function registerFlowTools(
 
   server.tool(
     "suricata_flow_summary",
-    "Network flow statistics with top talkers and protocol distribution",
+    externalDescription("Network flow statistics with top talkers and protocol distribution"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -91,7 +92,7 @@ export function registerFlowTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalFlows: flows.length,
               uniqueIpPairs: uniquePairs.size,
               totalBytes,
@@ -107,7 +108,7 @@ export function registerFlowTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error generating flow summary: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error generating flow summary: ${error}`) }],
           isError: true,
         };
       }

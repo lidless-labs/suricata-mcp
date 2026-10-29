@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerStatsTools(
 ): void {
   server.tool(
     "suricata_engine_stats",
-    "Get Suricata engine performance statistics",
+    externalDescription("Get Suricata engine performance statistics"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -25,7 +26,7 @@ export function registerStatsTools(
 
         if (events.length === 0) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify({ message: "No stats events found" }) }],
+            content: [{ type: "text" as const, text: externalJson({ message: "No stats events found" }) }],
           };
         }
 
@@ -35,7 +36,7 @@ export function registerStatsTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               statsEvents: events.length,
               timeRange: {
                 from: earliest.timestamp,
@@ -54,7 +55,7 @@ export function registerStatsTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error getting engine stats: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error getting engine stats: ${error}`) }],
           isError: true,
         };
       }

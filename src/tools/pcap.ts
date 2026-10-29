@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { readdir, stat } from "node:fs/promises";
@@ -30,7 +31,7 @@ export function registerPcapTools(
 ): void {
   server.tool(
     "pcap_list",
-    "List available PCAP files in the drop directory",
+    externalDescription("List available PCAP files in the drop directory"),
     {},
     async () => {
       try {
@@ -56,18 +57,18 @@ export function registerPcapTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ count: pcaps.length, pcaps }, null, 2),
+            text: externalJson({ count: pcaps.length, pcaps }, null, 2),
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error listing PCAPs: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error listing PCAPs: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "pcap_replay_suricata",
-    "Replay a PCAP file through Suricata for analysis (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Replay a PCAP file through Suricata for analysis (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     {
       filename: z.string().describe("PCAP filename (must exist in PCAP directory)"),
       confirm: z.boolean().optional().describe("Must be true to run the replay (destructive opt-in)"),
@@ -93,13 +94,13 @@ export function registerPcapTools(
         }
 
         if (activeReplays >= MAX_CONCURRENT_REPLAYS) {
-          return { content: [{ type: "text" as const, text: `Too many concurrent replays (max ${MAX_CONCURRENT_REPLAYS}). Try again shortly.` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`Too many concurrent replays (max ${MAX_CONCURRENT_REPLAYS}). Try again shortly.`) }], isError: true };
         }
 
         const fullPath = join(config.pcapDir, safe);
         const exists = await stat(fullPath).catch(() => null);
         if (!exists) {
-          return { content: [{ type: "text" as const, text: `PCAP file not found: ${safe}` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`PCAP file not found: ${safe}`) }], isError: true };
         }
 
         activeReplays++;
@@ -113,7 +114,7 @@ export function registerPcapTools(
           return {
             content: [{
               type: "text" as const,
-              text: JSON.stringify({
+              text: externalJson({
                 status: "completed",
                 filename: safe,
                 stdout: stdout.trim(),
@@ -125,14 +126,14 @@ export function registerPcapTools(
           activeReplays--;
         }
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error replaying PCAP through Suricata: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error replaying PCAP through Suricata: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "pcap_replay_zeek",
-    "Replay a PCAP file through Zeek for analysis (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Replay a PCAP file through Zeek for analysis (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     {
       filename: z.string().describe("PCAP filename (must exist in PCAP directory)"),
       confirm: z.boolean().optional().describe("Must be true to run the replay (destructive opt-in)"),
@@ -158,13 +159,13 @@ export function registerPcapTools(
         }
 
         if (activeReplays >= MAX_CONCURRENT_REPLAYS) {
-          return { content: [{ type: "text" as const, text: `Too many concurrent replays (max ${MAX_CONCURRENT_REPLAYS}). Try again shortly.` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`Too many concurrent replays (max ${MAX_CONCURRENT_REPLAYS}). Try again shortly.`) }], isError: true };
         }
 
         const fullPath = join(config.pcapDir, safe);
         const exists = await stat(fullPath).catch(() => null);
         if (!exists) {
-          return { content: [{ type: "text" as const, text: `PCAP file not found: ${safe}` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`PCAP file not found: ${safe}`) }], isError: true };
         }
 
         activeReplays++;
@@ -178,7 +179,7 @@ export function registerPcapTools(
           return {
             content: [{
               type: "text" as const,
-              text: JSON.stringify({
+              text: externalJson({
                 status: "completed",
                 filename: safe,
                 stdout: stdout.trim(),
@@ -190,7 +191,7 @@ export function registerPcapTools(
           activeReplays--;
         }
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error replaying PCAP through Zeek: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error replaying PCAP through Zeek: ${error}`) }], isError: true };
       }
     },
   );
