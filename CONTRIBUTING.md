@@ -19,7 +19,7 @@ suricata-mcp is an MCP server that exposes Suricata IDS/IPS and Zeek NSM telemet
 
 ## What does not land
 
-- Personal details, hostnames, real IP addresses, account IDs, or live credentials in code, tests, or fixtures. Use `192.0.2.0/24` (RFC 5737) and generic names like `misp.local`. The content-guard pre-push hook and CI will fail if it finds any.
+- Personal details, hostnames, real IP addresses, account IDs, or live credentials in code, tests, or fixtures. Use `192.0.2.0/24` (RFC 5737) and generic names like `misp.example.com`. The content-guard pre-push hook and CI will fail if it finds any.
 - Tools that call out to the network without an explicit operator opt-in. The MISP/TheHive clients are the only network egress, and they only run when their URL and key are configured.
 ## Commits and pull requests
 
