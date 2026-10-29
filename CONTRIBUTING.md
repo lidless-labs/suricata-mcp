@@ -24,7 +24,7 @@ suricata-mcp is an MCP server that exposes Suricata IDS/IPS and Zeek NSM telemet
 ## Commits and pull requests
 
 - Use conventional commit messages (`fix:`, `feat:`, `docs:`, `ci:` and so on).
-- End every commit message with the trailer line `Co-Authored-By: Claude Duet <noreply@anthropic.com>`.
+- End every commit message with the trailer line `Co-Authored-By: Claude <noreply@anthropic.com>`. <!-- content-guard: allow pii/email -->
 - Every pull request body states what changed, why, and the exact tests you ran (commands and results), and ends with the line `Opened by Claude Duet`.
 
 ## Local dev
