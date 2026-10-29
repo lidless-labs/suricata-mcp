@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -12,7 +13,7 @@ export function registerAlertTools(
 ): void {
   server.tool(
     "suricata_query_alerts",
-    "Search Suricata IDS/IPS alerts with flexible filters",
+    externalDescription("Search Suricata IDS/IPS alerts with flexible filters"),
     {
       signatureId: z.number().optional().describe("Suricata rule SID"),
       signature: z.string().optional().describe("Signature message text (partial match)"),
@@ -50,11 +51,11 @@ export function registerAlertTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: alerts.length, alerts }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: alerts.length, alerts }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying alerts: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying alerts: ${error}`) }],
           isError: true,
         };
       }
@@ -63,7 +64,7 @@ export function registerAlertTools(
 
   server.tool(
     "suricata_alert_summary",
-    "Statistical summary of alerts over a time period",
+    externalDescription("Statistical summary of alerts over a time period"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -95,7 +96,7 @@ export function registerAlertTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalAlerts: alerts.length,
               groupBy: groupField,
               groups: topN(grouped, 20),
@@ -108,7 +109,7 @@ export function registerAlertTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error generating alert summary: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error generating alert summary: ${error}`) }],
           isError: true,
         };
       }
@@ -117,7 +118,7 @@ export function registerAlertTools(
 
   server.tool(
     "suricata_top_alerts",
-    "Get the most frequent and most severe alerts",
+    externalDescription("Get the most frequent and most severe alerts"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -185,7 +186,7 @@ export function registerAlertTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalAlerts: alerts.length,
               uniqueSignatures: sigMap.size,
               topByFrequency: topByCount,
@@ -195,7 +196,7 @@ export function registerAlertTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error getting top alerts: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error getting top alerts: ${error}`) }],
           isError: true,
         };
       }
@@ -204,7 +205,7 @@ export function registerAlertTools(
 
   server.tool(
     "suricata_alert_timeline",
-    "Get alert volume over time for spike detection",
+    externalDescription("Get alert volume over time for spike detection"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -224,7 +225,7 @@ export function registerAlertTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalAlerts: alerts.length,
               interval,
               buckets,
@@ -233,7 +234,7 @@ export function registerAlertTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error generating alert timeline: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error generating alert timeline: ${error}`) }],
           isError: true,
         };
       }

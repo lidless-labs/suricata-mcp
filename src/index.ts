@@ -86,7 +86,10 @@ registerResources(server, engine, config);
 registerPrompts(server);
 
 async function main() {
-  const transport = new StdioServerTransport();
+  // Keep the documented 10 MiB stdio input limit explicit across SDK updates.
+  const transport = new StdioServerTransport(undefined, undefined, {
+    maxBufferSize: 10 * 1024 * 1024,
+  });
   // Strip the draft-07 `$schema` the MCP SDK stamps on tool schemas; Anthropic
   // rejects it ("must match JSON Schema draft 2020-12") when the full tool set
   // is sent, e.g. on subagent spawns. Intercept tools/list output here.

@@ -2,10 +2,16 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import * as net from "node:net";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { SuricataConfig } from "../src/config.js";
 import { checkMutationAllowed } from "../src/tools/mutation.js";
 import { execFileAsync } from "../src/tools/exec.js";
+
+vi.mock("node:net", async (importOriginal) => ({
+  ...await importOriginal<typeof import("node:net")>(),
+  createConnection: vi.fn(),
+}));
 
 vi.mock("../src/tools/exec.js", () => ({
   execFileAsync: vi.fn(),
@@ -16,6 +22,7 @@ const execMock = vi.mocked(execFileAsync) as unknown as ReturnType<
 >;
 
 beforeEach(() => {
+  vi.mocked(net.createConnection).mockReset().mockImplementation(() => { throw new Error("Unexpected socket operation in fake harness"); });
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "example", title: "example" }), { status: 201 })));
   // The pid file read during a rules reload must look like a pid; every other
   // call returns empty output.
@@ -25,7 +32,7 @@ beforeEach(() => {
   }));
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 import { registerRuleTools } from "../src/tools/rules.js";
 import { registerPcapTools } from "../src/tools/pcap.js";
@@ -223,6 +230,8 @@ describe("Confirmation gates on destructive tools", () => {
       expect(result.isError).toBe(true);
       expectMutationDisabledError(result.content[0].text);
       expect(fetch).not.toHaveBeenCalled();
+      expect(execMock).not.toHaveBeenCalled();
+      expect(net.createConnection).not.toHaveBeenCalled();
     });
   });
 

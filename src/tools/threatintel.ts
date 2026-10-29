@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
@@ -69,7 +70,7 @@ export function registerThreatIntelTools(
 ): void {
   server.tool(
     "misp_search_ioc",
-    "Search MISP threat intelligence platform for IOCs (IP, domain, hash)",
+    externalDescription("Search MISP threat intelligence platform for IOCs (IP, domain, hash)"),
     {
       value: z.string().describe("IOC value to search (IP, domain, or hash)"),
       type: z.enum(["ip-src", "ip-dst", "domain", "hostname", "md5", "sha256", "sha1", "url"]).optional().describe("IOC type (auto-detected if omitted)"),
@@ -107,7 +108,7 @@ export function registerThreatIntelTools(
           return {
             content: [{
               type: "text" as const,
-              text: JSON.stringify({ status: "error", httpStatus: result.status, message: "MISP request failed" }, null, 2),
+              text: externalJson({ status: "error", httpStatus: result.status, message: "MISP request failed" }, null, 2),
             }],
             isError: true,
           };
@@ -118,7 +119,7 @@ export function registerThreatIntelTools(
           data = JSON.parse(result.body);
         } catch {
           return {
-            content: [{ type: "text" as const, text: `MISP returned a non-JSON response (HTTP ${result.status}).` }],
+            content: [{ type: "text" as const, text: externalText(`MISP returned a non-JSON response (HTTP ${result.status}).`) }],
             isError: true,
           };
         }
@@ -127,7 +128,7 @@ export function registerThreatIntelTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               query: args.value,
               matchCount: attributes.length,
               attributes: attributes.map((a: Record<string, unknown>) => ({
@@ -144,14 +145,14 @@ export function registerThreatIntelTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error searching MISP: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error searching MISP: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "thehive_create_case",
-    "Create a new case in TheHive from investigation findings",
+    externalDescription("Create a new case in TheHive from investigation findings"),
     {
       confirm: z.boolean().optional().describe("Must be true to create in TheHive"),
       title: z.string().describe("Case title"),
@@ -196,14 +197,14 @@ export function registerThreatIntelTools(
             data = JSON.parse(result.body);
           } catch {
             return {
-              content: [{ type: "text" as const, text: `TheHive returned a non-JSON response (HTTP ${result.status}).` }],
+              content: [{ type: "text" as const, text: externalText(`TheHive returned a non-JSON response (HTTP ${result.status}).`) }],
               isError: true,
             };
           }
           return {
             content: [{
               type: "text" as const,
-              text: JSON.stringify({
+              text: externalJson({
                 status: "created",
                 caseId: data._id ?? data.id,
                 caseNumber: data.caseId ?? data.number,
@@ -216,19 +217,19 @@ export function registerThreatIntelTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ status: "error", httpStatus: result.status, message: "TheHive case creation failed" }, null, 2),
+            text: externalJson({ status: "error", httpStatus: result.status, message: "TheHive case creation failed" }, null, 2),
           }],
           isError: true,
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error creating TheHive case: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error creating TheHive case: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "thehive_create_alert",
-    "Push a Suricata alert to TheHive as an alert for triage",
+    externalDescription("Push a Suricata alert to TheHive as an alert for triage"),
     {
       confirm: z.boolean().optional().describe("Must be true to create in TheHive"),
       title: z.string().describe("Alert title"),
@@ -288,14 +289,14 @@ export function registerThreatIntelTools(
             data = JSON.parse(result.body);
           } catch {
             return {
-              content: [{ type: "text" as const, text: `TheHive returned a non-JSON response (HTTP ${result.status}).` }],
+              content: [{ type: "text" as const, text: externalText(`TheHive returned a non-JSON response (HTTP ${result.status}).`) }],
               isError: true,
             };
           }
           return {
             content: [{
               type: "text" as const,
-              text: JSON.stringify({
+              text: externalJson({
                 status: "created",
                 alertId: data._id ?? data.id,
                 title: data.title,
@@ -308,12 +309,12 @@ export function registerThreatIntelTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ status: "error", httpStatus: result.status, message: "TheHive alert creation failed" }, null, 2),
+            text: externalJson({ status: "error", httpStatus: result.status, message: "TheHive alert creation failed" }, null, 2),
           }],
           isError: true,
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error creating TheHive alert: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error creating TheHive alert: ${error}`) }], isError: true };
       }
     },
   );

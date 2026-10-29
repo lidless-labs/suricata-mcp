@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerDnsTools(
 ): void {
   server.tool(
     "suricata_query_dns",
-    "Search DNS transaction logs from Suricata",
+    externalDescription("Search DNS transaction logs from Suricata"),
     {
       query: z.string().optional().describe("DNS query name (partial match)"),
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
@@ -37,11 +38,11 @@ export function registerDnsTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: events.length, dns: events }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: events.length, dns: events }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying DNS: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying DNS: ${error}`) }],
           isError: true,
         };
       }

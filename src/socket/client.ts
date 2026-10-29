@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import { createConnection } from "node:net";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -44,7 +45,7 @@ export function registerSocketTools(
 ): void {
   server.tool(
     "suricata_reload_rules",
-    "Trigger a live rule reload via Suricata Unix socket (requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Trigger a live rule reload via Suricata Unix socket (requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     { confirm: z.boolean().optional().describe("Must be true to reload rules") },
     { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
     async (args) => {
@@ -60,11 +61,11 @@ export function registerSocketTools(
 
         const result = await sendCommand(config.unixSocket, "reload-rules");
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ status: "success", response: result }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ status: "success", response: result }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error reloading rules: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error reloading rules: ${error}`) }],
           isError: true,
         };
       }
@@ -73,7 +74,7 @@ export function registerSocketTools(
 
   server.tool(
     "suricata_iface_stat",
-    "Get interface capture statistics from Suricata",
+    externalDescription("Get interface capture statistics from Suricata"),
     {
       iface: z.string().optional().describe("Interface name (e.g., eth0)"),
     },
@@ -89,11 +90,11 @@ export function registerSocketTools(
         const cmdArgs = args.iface ? { iface: args.iface } : undefined;
         const result = await sendCommand(config.unixSocket, "iface-stat", cmdArgs);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ status: "success", response: result }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ status: "success", response: result }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error getting interface stats: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error getting interface stats: ${error}`) }],
           isError: true,
         };
       }

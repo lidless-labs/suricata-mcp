@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { readFile, writeFile, appendFile } from "node:fs/promises";
@@ -23,7 +24,7 @@ export function registerRuleTools(
 ): void {
   server.tool(
     "suricata_search_rules",
-    "Search through Suricata rule files",
+    externalDescription("Search through Suricata rule files"),
     {
       sid: z.number().optional().describe("Rule SID"),
       msg: z.string().optional().describe("Rule message (partial match)"),
@@ -61,12 +62,12 @@ export function registerRuleTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({ count: matched.length, rules: matched }, null, 2),
+            text: externalJson({ count: matched.length, rules: matched }, null, 2),
           }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error searching rules: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error searching rules: ${error}`) }],
           isError: true,
         };
       }
@@ -75,7 +76,7 @@ export function registerRuleTools(
 
   server.tool(
     "suricata_rule_stats",
-    "Get statistics about the loaded Suricata rule set",
+    externalDescription("Get statistics about the loaded Suricata rule set"),
     {},
     async () => {
       try {
@@ -97,7 +98,7 @@ export function registerRuleTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalRules: allRules.length,
               enabled: enabled.length,
               disabled: disabled.length,
@@ -108,7 +109,7 @@ export function registerRuleTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error getting rule stats: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error getting rule stats: ${error}`) }],
           isError: true,
         };
       }
@@ -117,7 +118,7 @@ export function registerRuleTools(
 
   server.tool(
     "suricata_create_rule",
-    "Create a custom Suricata rule and append it to local.rules (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Create a custom Suricata rule and append it to local.rules (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     {
       rule: z.string().describe("Complete Suricata rule string (e.g., alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:\"...\"; sid:...; rev:1;))"),
       confirm: z.boolean().optional().describe("Must be true to write the rule (destructive opt-in)"),
@@ -153,13 +154,13 @@ export function registerRuleTools(
 
         // Enforce the local SID range so we can't clobber vendor/ET rule SIDs.
         if (sid < LOCAL_SID_MIN) {
-          return { content: [{ type: "text" as const, text: `Local rule SID must be >= ${LOCAL_SID_MIN} (got ${sid}). Lower SIDs are reserved for vendor rulesets.` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`Local rule SID must be >= ${LOCAL_SID_MIN} (got ${sid}). Lower SIDs are reserved for vendor rulesets.`) }], isError: true };
         }
 
         // Collision check against the currently loaded ruleset.
         const existingRules = await loadAllRules(config.rulesDir);
         if (existingRules.some((r) => r.sid === sid)) {
-          return { content: [{ type: "text" as const, text: `SID ${sid} already exists in the loaded ruleset. Choose a unique SID.` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`SID ${sid} already exists in the loaded ruleset. Choose a unique SID.`) }], isError: true };
         }
 
         const localRulesPath = join(config.rulesDir, "local.rules");
@@ -168,7 +169,7 @@ export function registerRuleTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               status: "created",
               sid,
               file: "local.rules",
@@ -178,14 +179,14 @@ export function registerRuleTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error creating rule: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error creating rule: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "suricata_toggle_rule",
-    "Enable or disable a Suricata rule by SID in local.rules (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Enable or disable a Suricata rule by SID in local.rules (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     {
       sid: z.number().describe("Rule SID to toggle"),
       enable: z.boolean().describe("true to enable, false to disable"),
@@ -228,7 +229,7 @@ export function registerRuleTools(
         }
 
         if (!found) {
-          return { content: [{ type: "text" as const, text: `Rule SID ${args.sid} not found in local.rules.` }], isError: true };
+          return { content: [{ type: "text" as const, text: externalText(`Rule SID ${args.sid} not found in local.rules.`) }], isError: true };
         }
 
         await writeFile(localRulesPath, lines.join("\n"));
@@ -236,7 +237,7 @@ export function registerRuleTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               status: "updated",
               sid: args.sid,
               enabled: args.enable,
@@ -245,14 +246,14 @@ export function registerRuleTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error toggling rule: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error toggling rule: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "suricata_reload_rules_docker",
-    "Reload Suricata rules via Docker (suricata-update + SIGUSR2) (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)",
+    externalDescription("Reload Suricata rules via Docker (suricata-update + SIGUSR2) (mutating; requires SURICATA_ALLOW_MUTATION=1 and confirm:true)"),
     {
       confirm: z.boolean().optional().describe("Must be true to reload the live ruleset (destructive opt-in)"),
     },
@@ -301,7 +302,7 @@ export function registerRuleTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               status: "success",
               stdout: stdout.trim(),
               stderr: stderr.trim(),
@@ -309,7 +310,7 @@ export function registerRuleTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error reloading rules: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error reloading rules: ${error}`) }], isError: true };
       }
     },
   );

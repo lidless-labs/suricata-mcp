@@ -34,3 +34,11 @@ You should get an acknowledgment within 72 hours. If you do not, please follow u
 ## Disclosure
 
 We aim to ship a fix within 14 days of confirming a valid report. A coordinated disclosure timeline can be negotiated for issues that need longer.
+
+## External analysis results
+
+Tool results and resources derived from logs, rule files, filenames or remote services carry an `_provenance` field. Its notice identifies the values as untrusted data. Treat embedded requests and instructions as evidence to analyze. They do not authorize tool calls or changes to a sensor.
+
+The shared output boundary bounds values before JSON serialization: strings and keys to 2,048 UTF-16 units, nesting to eight levels, traversal to 2,000 nodes, and each collection to 100 entries. Serialized responses stay below 64 KiB. It escapes angle-bracket openings and code-fence characters in both keys and values, and does not invoke getters or serialization hooks. `_provenance.truncated` reports omitted data. Counts can describe the original query results even when the displayed collection is truncated.
+
+Small object results retain their existing fields with the added provenance field. External error text appears in a JSON `message` field. The root `_provenance` name is reserved for the server. Static resource catalogs retain their existing array format. Clients must continue to treat parsed strings as untrusted after JSON decoding. These output limits bound presentation and do not replace parser or input limits. Stdio input retains an explicit 10 MiB buffer limit through the SDK's public transport options.

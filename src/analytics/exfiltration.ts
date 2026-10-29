@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -21,7 +22,7 @@ export function registerExfiltrationTools(
 ): void {
   server.tool(
     "suricata_exfiltration_detection",
-    "Detect hosts with abnormally high outbound data transfer that may indicate data exfiltration",
+    externalDescription("Detect hosts with abnormally high outbound data transfer that may indicate data exfiltration"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -100,7 +101,7 @@ export function registerExfiltrationTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalFlowsAnalyzed: flows.length,
               exfiltrationCandidates: candidates.length,
               minBytesThreshold: minBytes,
@@ -110,7 +111,7 @@ export function registerExfiltrationTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error detecting exfiltration: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error detecting exfiltration: ${error}`) }], isError: true };
       }
     },
   );

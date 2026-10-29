@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -10,7 +11,7 @@ export function registerSshTools(
 ): void {
   server.tool(
     "suricata_query_ssh",
-    "Search SSH protocol logs from Suricata",
+    externalDescription("Search SSH protocol logs from Suricata"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       dstIp: z.string().optional().describe("Destination IP (supports CIDR)"),
@@ -38,11 +39,11 @@ export function registerSshTools(
         );
 
         return {
-          content: [{ type: "text" as const, text: JSON.stringify({ count: events.length, ssh: events }, null, 2) }],
+          content: [{ type: "text" as const, text: externalJson({ count: events.length, ssh: events }, null, 2) }],
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error querying SSH: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error querying SSH: ${error}`) }],
           isError: true,
         };
       }

@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
@@ -45,7 +46,7 @@ export function registerCorrelationTools(
 ): void {
   server.tool(
     "correlate_alert_with_zeek",
-    "Cross-correlate a Suricata alert with Zeek logs to get enriched context (conn, dns, http, ssl data for the same IP pair and time window)",
+    externalDescription("Cross-correlate a Suricata alert with Zeek logs to get enriched context (conn, dns, http, ssl data for the same IP pair and time window)"),
     {
       signatureId: z.number().optional().describe("Suricata rule SID to correlate"),
       srcIp: z.string().optional().describe("Source IP of the alert"),
@@ -77,7 +78,7 @@ export function registerCorrelationTools(
         );
 
         if (alerts.length === 0) {
-          return { content: [{ type: "text" as const, text: JSON.stringify({ message: "No matching alerts found" }) }] };
+          return { content: [{ type: "text" as const, text: externalJson({ message: "No matching alerts found" }) }] };
         }
 
         // For each alert, find matching Zeek records
@@ -155,7 +156,7 @@ export function registerCorrelationTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               alertsCorrelated: correlations.length,
               windowSeconds: window,
               correlations,
@@ -163,7 +164,7 @@ export function registerCorrelationTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error correlating alert with Zeek: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error correlating alert with Zeek: ${error}`) }], isError: true };
       }
     },
   );

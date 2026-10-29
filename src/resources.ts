@@ -1,3 +1,4 @@
+import { externalJson } from "./external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { QueryEngine } from "./query/engine.js";
 import type { SuricataConfig } from "./config.js";
@@ -56,7 +57,7 @@ export function registerResources(
           contents: [{
             uri: "suricata://stats/current",
             mimeType: "application/json",
-            text: JSON.stringify(latest ? latest.stats : { message: "No stats available" }, null, 2),
+            text: externalJson(latest ? latest.stats : { message: "No stats available" }, null, 2),
           }],
         };
       } catch {
@@ -64,7 +65,7 @@ export function registerResources(
           contents: [{
             uri: "suricata://stats/current",
             mimeType: "application/json",
-            text: JSON.stringify({ error: "Failed to read stats" }),
+            text: externalJson({ error: "Failed to read stats" }),
           }],
         };
       }
@@ -81,7 +82,7 @@ export function registerResources(
             contents: [{
               uri: "suricata://rules/summary",
               mimeType: "application/json",
-              text: JSON.stringify({ message: "Rules directory not configured" }),
+              text: externalJson({ message: "Rules directory not configured" }),
             }],
           };
         }
@@ -94,7 +95,7 @@ export function registerResources(
           contents: [{
             uri: "suricata://rules/summary",
             mimeType: "application/json",
-            text: JSON.stringify({
+            text: externalJson({
               totalRules: rules.length,
               enabled,
               disabled: rules.length - enabled,
@@ -107,7 +108,7 @@ export function registerResources(
           contents: [{
             uri: "suricata://rules/summary",
             mimeType: "application/json",
-            text: JSON.stringify({ error: "Failed to read rules" }),
+            text: externalJson({ error: "Failed to read rules" }),
           }],
         };
       }
@@ -133,7 +134,7 @@ export function registerResources(
         contents: [{
           uri: "suricata://config",
           mimeType: "application/json",
-          text: JSON.stringify(sanitized, null, 2),
+          text: externalJson(sanitized, null, 2),
         }],
       };
     },

@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -51,7 +52,7 @@ export function registerDgaDetectionTools(
 ): void {
   server.tool(
     "suricata_dga_detection",
-    "Detect potential DGA (Domain Generation Algorithm) domains using Shannon entropy analysis on DNS queries",
+    externalDescription("Detect potential DGA (Domain Generation Algorithm) domains using Shannon entropy analysis on DNS queries"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -129,7 +130,7 @@ export function registerDgaDetectionTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalDnsQueries: dnsEvents.length,
               suspiciousDomains: candidates.length,
               entropyThreshold: threshold,
@@ -138,7 +139,7 @@ export function registerDgaDetectionTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error detecting DGA domains: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error detecting DGA domains: ${error}`) }], isError: true };
       }
     },
   );

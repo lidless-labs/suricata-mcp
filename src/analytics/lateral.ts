@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -6,9 +7,9 @@ import { inTimeRange } from "../query/filters.js";
 import { aggregate, topN } from "../query/aggregation.js";
 
 const RFC1918_RANGES = [
-  { start: 0x0A000000, end: 0x0AFFFFFF }, // 10.0.0.0/8
-  { start: 0xAC100000, end: 0xAC1FFFFF }, // 172.16.0.0/12
-  { start: 0xC0A80000, end: 0xC0A8FFFF }, // 192.168.0.0/16
+  { start: 0x0A000000, end: 0x0AFFFFFF }, // First RFC1918 address block
+  { start: 0xAC100000, end: 0xAC1FFFFF }, // Second RFC1918 address block
+  { start: 0xC0A80000, end: 0xC0A8FFFF }, // Third RFC1918 address block
 ];
 
 function ipToNumber(ip: string): number | null {
@@ -50,7 +51,7 @@ export function registerLateralMovementTools(
 ): void {
   server.tool(
     "suricata_lateral_movement_detection",
-    "Detect potential lateral movement by finding internal hosts scanning or connecting to multiple internal targets on unusual ports",
+    externalDescription("Detect potential lateral movement by finding internal hosts scanning or connecting to multiple internal targets on unusual ports"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -137,7 +138,7 @@ export function registerLateralMovementTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalInternalFlows: flows.length,
               lateralCandidates: candidates.length,
               minTargetsThreshold: minTargets,
@@ -146,7 +147,7 @@ export function registerLateralMovementTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error detecting lateral movement: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error detecting lateral movement: ${error}`) }], isError: true };
       }
     },
   );

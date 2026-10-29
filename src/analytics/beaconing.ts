@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { QueryEngine } from "../query/engine.js";
@@ -71,7 +72,7 @@ export function registerBeaconingTools(
 ): void {
   server.tool(
     "suricata_beaconing_detection",
-    "Detect potential C2 beaconing patterns in flow data",
+    externalDescription("Detect potential C2 beaconing patterns in flow data"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -158,7 +159,7 @@ export function registerBeaconingTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalFlowsAnalyzed: flows.length,
               uniquePairsAnalyzed: groups.size,
               beaconCandidates: candidates.length,
@@ -168,7 +169,7 @@ export function registerBeaconingTools(
         };
       } catch (error) {
         return {
-          content: [{ type: "text" as const, text: `Error detecting beaconing: ${error}` }],
+          content: [{ type: "text" as const, text: externalText(`Error detecting beaconing: ${error}`) }],
           isError: true,
         };
       }

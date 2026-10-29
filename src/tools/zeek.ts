@@ -1,3 +1,4 @@
+import { externalJson, externalText, externalDescription } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
@@ -36,7 +37,7 @@ export function registerZeekTools(
 ): void {
   server.tool(
     "zeek_query_connections",
-    "Search Zeek conn.log for network connections",
+    externalDescription("Search Zeek conn.log for network connections"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       dstIp: z.string().optional().describe("Destination IP (supports CIDR)"),
@@ -84,16 +85,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, connections: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, connections: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek connections: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek connections: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_dns",
-    "Search Zeek dns.log for DNS transactions",
+    externalDescription("Search Zeek dns.log for DNS transactions"),
     {
       query: z.string().optional().describe("DNS query name (partial match)"),
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
@@ -124,16 +125,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, dns: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, dns: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek DNS: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek DNS: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_http",
-    "Search Zeek http.log for HTTP transactions",
+    externalDescription("Search Zeek http.log for HTTP transactions"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       host: z.string().optional().describe("HTTP host (partial match)"),
@@ -168,16 +169,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, http: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, http: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek HTTP: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek HTTP: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_ssl",
-    "Search Zeek ssl.log for TLS/SSL connections",
+    externalDescription("Search Zeek ssl.log for TLS/SSL connections"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       dstIp: z.string().optional().describe("Destination IP (supports CIDR)"),
@@ -208,16 +209,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, ssl: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, ssl: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek SSL: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek SSL: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_files",
-    "Search Zeek files.log for file transfer metadata",
+    externalDescription("Search Zeek files.log for file transfer metadata"),
     {
       filename: z.string().optional().describe("Filename (partial match)"),
       mimeType: z.string().optional().describe("MIME type (partial match)"),
@@ -252,16 +253,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, files: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, files: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek files: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek files: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_ssh",
-    "Search Zeek ssh.log for SSH connection metadata",
+    externalDescription("Search Zeek ssh.log for SSH connection metadata"),
     {
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
       dstIp: z.string().optional().describe("Destination IP (supports CIDR)"),
@@ -298,16 +299,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, ssh: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, ssh: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek SSH: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek SSH: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_query_weird",
-    "Search Zeek weird.log for protocol anomalies",
+    externalDescription("Search Zeek weird.log for protocol anomalies"),
     {
       name: z.string().optional().describe("Weird event name (partial match)"),
       srcIp: z.string().optional().describe("Source IP (supports CIDR)"),
@@ -336,16 +337,16 @@ export function registerZeekTools(
           },
         });
         const limited = records.slice(0, args.limit ?? 100);
-        return { content: [{ type: "text" as const, text: JSON.stringify({ count: limited.length, weird: limited }, null, 2) }] };
+        return { content: [{ type: "text" as const, text: externalJson({ count: limited.length, weird: limited }, null, 2) }] };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error querying Zeek weird: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error querying Zeek weird: ${error}`) }], isError: true };
       }
     },
   );
 
   server.tool(
     "zeek_connection_summary",
-    "Network connection summary from Zeek conn.log with top talkers and protocol distribution",
+    externalDescription("Network connection summary from Zeek conn.log with top talkers and protocol distribution"),
     {
       timeFrom: z.string().optional().describe("Start time (ISO 8601)"),
       timeTo: z.string().optional().describe("End time (ISO 8601)"),
@@ -380,7 +381,7 @@ export function registerZeekTools(
         return {
           content: [{
             type: "text" as const,
-            text: JSON.stringify({
+            text: externalJson({
               totalConnections: records.length,
               totalOrigBytes: totalOrig,
               totalRespBytes: totalResp,
@@ -394,7 +395,7 @@ export function registerZeekTools(
           }],
         };
       } catch (error) {
-        return { content: [{ type: "text" as const, text: `Error generating Zeek connection summary: ${error}` }], isError: true };
+        return { content: [{ type: "text" as const, text: externalText(`Error generating Zeek connection summary: ${error}`) }], isError: true };
       }
     },
   );
