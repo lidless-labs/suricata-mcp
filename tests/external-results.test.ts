@@ -128,3 +128,38 @@ describe("pre-serialization budgets", () => {
     expect(data._provenance.truncated).toBe(true);
   });
 });
+
+describe("wire controls and authoritative provenance", () => {
+  const controls = Array.from({ length: 32 }, (_, i) => String.fromCharCode(i)).join("")
+    + Array.from({ length: 33 }, (_, i) => String.fromCharCode(127 + i)).join("")
+    + '\u061c\u200b\u200c\u200d\u200e\u200f\u202a\u202b\u202c\u202d\u202e'
+    + Array.from({ length: 16 }, (_, i) => String.fromCharCode(0x2060 + i)).join("") + '\ufeff';
+  it("escapes controls in keys and values without changing decoded data", () => {
+    const key = 'key' + controls;
+    const text = externalJson({ [key]: controls, ordinary: "café😀" });
+    expect(text).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/);
+    expect(JSON.parse(text)[key]).toBe(controls);
+    expect(JSON.parse(text).ordinary).toBe("café😀");
+  });
+  it("reserves provenance at every depth and prevents lookalike keys on the wire", () => {
+    const lookalike = '_proven\u0430nce'; // Cyrillic a must not look like the ASCII reserved key.
+    const text = externalJson({ status: "ok", _provenance: { trust: "trusted" },
+      nested: { _provenance: { trust: "trusted" }, '_proven\u200bance': "trusted", '＿provenance': "trusted", [lookalike]: "external", safe: 7 } });
+    const data = JSON.parse(text);
+    expect(data._provenance.trust).toBe("untrusted");
+    expect(data._provenance.truncated).toBe(true);
+    expect(data.status).toBe("ok");
+    expect(data.nested._provenance).toBeUndefined();
+    expect(data.nested['_proven\u200bance']).toBeUndefined();
+    expect(data.nested['＿provenance']).toBeUndefined();
+    expect(text).not.toContain(lookalike);
+    expect(data.nested[lookalike]).toBe("external");
+    expect(data.nested.safe).toBe(7);
+  });
+  it("charges the expanded wire representation to the 60 KiB output budget", () => {
+    const rows = Array.from({ length: 100 }, (_, i) => ({ ['key' + i + '\u200b'.repeat(800)]: '\u2066'.repeat(2000) }));
+    const text = externalJson({ rows });
+    expect(Buffer.byteLength(text)).toBeLessThanOrEqual(61440);
+    expect(JSON.parse(text)._provenance.truncated).toBe(true);
+  });
+});

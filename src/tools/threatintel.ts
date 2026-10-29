@@ -1,27 +1,11 @@
-import { externalJson, externalText, externalDescription } from "../external.js";
+import { externalJson, externalText, externalDescription, UPSTREAM_LIMITS } from "../external.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SuricataConfig } from "../config.js";
 import { checkMutationAllowed } from "./mutation.js";
 
-/**
- * Thrown when an intel endpoint responds with a redirect. We use
- * `redirect: "manual"` so the runtime never transparently re-sends the
- * Authorization header (MISP/TheHive API key) to a different host. A redirect
- * from a compromised or misconfigured endpoint is treated as a hard failure
- * rather than silently followed.
- */
-class RedirectNotAllowedError extends Error {
-  constructor(public readonly status: number, public readonly location: string | null) {
-    super(
-      `Intel endpoint returned a redirect (HTTP ${status}` +
-        (location ? ` -> ${location}` : "") +
-        "). Refusing to follow it with credentials attached. " +
-        "Point *_URL directly at the API host (no redirect).",
-    );
-    this.name = "RedirectNotAllowedError";
-  }
-}
+/** Only locally constructed errors may cross the credential-bearing boundary. */
+class IntelBoundaryError extends Error {}
 
 async function httpRequest(
   url: string,
@@ -33,34 +17,65 @@ async function httpRequest(
   } = {},
 ): Promise<{ status: number; body: string }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeout ?? 30000);
+  let response: Response | undefined;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let complete = false;
+  // Race each I/O against one deadline: abort alone can wait on a stalled body.
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new IntelBoundaryError("Intel request timed out"));
+      controller.abort();
+    }, options.timeout ?? 30000);
+  });
 
   try {
-    // `redirect: "manual"` prevents the fetch implementation from transparently
-    // following 3xx responses. Following them would forward the API key in the
-    // Authorization header to whatever host the redirect points at.
-    const response = await fetch(url, {
+    response = await Promise.race([fetch(url, {
       method: options.method ?? "GET",
       headers: options.headers,
       body: options.body,
       signal: controller.signal,
+      // Never resend credentials to a redirect target.
       redirect: "manual",
-    });
+    }), deadline]);
 
-    // A manual-redirect response surfaces as either an opaqueredirect
-    // (response.type === "opaqueredirect") or a 3xx status depending on the
-    // runtime. Treat any redirect as a refusal instead of leaking credentials.
     if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
-      throw new RedirectNotAllowedError(
-        response.status || 0,
-        response.headers.get("location"),
-      );
+      throw new IntelBoundaryError(`Intel endpoint redirect refused (HTTP ${response.status})`);
     }
-
-    const body = await response.text();
-    return { status: response.status, body };
+    // Error bodies and Location/statusText may contain secrets. Never read/echo them.
+    if (response.status < 200 || response.status >= 300) return { status: response.status, body: "" };
+    const length = response.headers.get("content-length");
+    if (length !== null && (!/^\d+$/.test(length) || Number(length) > UPSTREAM_LIMITS.bytes)) {
+      throw new IntelBoundaryError("Intel response exceeds upstream byte budget or has invalid Content-Length");
+    }
+    if (!response.body) { complete = true; return { status: response.status, body: "" }; }
+    reader = response.body.getReader();
+    // One fixed accumulator avoids retaining arbitrarily many tiny chunk objects.
+    const buffer = Buffer.alloc(UPSTREAM_LIMITS.bytes);
+    let bytes = 0;
+    let fragments = 0;
+    for (;;) {
+      const chunk = await Promise.race([reader.read(), deadline]);
+      if (chunk.done) break;
+      if (++fragments > UPSTREAM_LIMITS.fragments || chunk.value.byteLength > UPSTREAM_LIMITS.bytes - bytes) {
+        throw new IntelBoundaryError("Intel response exceeds upstream byte or fragment budget");
+      }
+      buffer.set(chunk.value, bytes);
+      bytes += chunk.value.byteLength;
+    }
+    complete = true;
+    return { status: response.status, body: new TextDecoder().decode(buffer.subarray(0, bytes)) };
+  } catch (error) {
+    throw error instanceof IntelBoundaryError ? error : new IntelBoundaryError("Intel request failed");
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer!);
+    if (!complete) {
+      controller.abort();
+      // A producer's cancellation promise is not trusted to settle.
+      const cancellation = reader ? reader.cancel() : response?.body?.cancel();
+      void cancellation?.catch(() => {});
+    }
+    reader?.releaseLock();
   }
 }
 

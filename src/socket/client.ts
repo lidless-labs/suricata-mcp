@@ -1,4 +1,4 @@
-import { externalJson, externalText, externalDescription } from "../external.js";
+import { externalJson, externalText, externalDescription, UPSTREAM_LIMITS } from "../external.js";
 import { createConnection } from "node:net";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
@@ -11,31 +11,56 @@ function sendCommand(
   args?: Record<string, string>,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const socket = createConnection(socketPath, () => {
-      // Suricata expects JSON commands on its Unix socket
-      const cmd = args
-        ? JSON.stringify({ command, arguments: args })
-        : JSON.stringify({ command });
-      socket.write(cmd);
-    });
-
-    let data = "";
-    socket.on("data", (chunk) => {
-      data += chunk.toString();
-    });
-
-    socket.on("end", () => {
-      resolve(data);
-    });
-
-    socket.on("error", (err) => {
-      reject(new Error(`Socket error: ${err.message}`));
-    });
-
-    socket.setTimeout(10000, () => {
+    let socket: ReturnType<typeof createConnection>;
+    try { socket = createConnection(socketPath); }
+    catch { reject(new Error("Socket command failed")); return; }
+    const buffer = Buffer.alloc(UPSTREAM_LIMITS.bytes);
+    let bytes = 0;
+    let fragments = 0;
+    let settled = false;
+    const finish = (error?: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.setTimeout(0);
+      socket.removeListener("connect", onConnect);
+      socket.removeListener("data", onData);
+      socket.removeListener("end", onEnd);
+      socket.removeListener("error", onError);
+      socket.removeListener("timeout", onTimeout);
+      socket.removeListener("close", onClose);
       socket.destroy();
-      reject(new Error("Socket command timed out"));
-    });
+      if (error) reject(new Error(error));
+      else resolve(buffer.toString("utf8", 0, bytes));
+    };
+    const onConnect = () => {
+      if (settled) return;
+      const cmd = args ? JSON.stringify({ command, arguments: args }) : JSON.stringify({ command });
+      try { socket.write(cmd); } catch { finish("Socket command failed"); }
+    };
+    const onData = (chunk: Buffer) => {
+      if (settled) return;
+      // Count raw bytes before retaining anything, including zero-byte fragments.
+      if (++fragments > UPSTREAM_LIMITS.fragments || chunk.byteLength > UPSTREAM_LIMITS.bytes - bytes) {
+        finish("Socket response exceeds upstream byte or fragment budget");
+        return;
+      }
+      buffer.set(chunk, bytes);
+      bytes += chunk.byteLength;
+    };
+    const onEnd = () => finish();
+    const onError = () => finish("Socket command failed");
+    const onClose = () => finish("Socket closed before response completed");
+    const onTimeout = () => finish("Socket command timed out");
+    // Keep both idle and absolute deadlines. Continuous data cannot extend the latter.
+    const timer = setTimeout(onTimeout, 10000);
+    socket.once("connect", onConnect);
+    socket.on("data", onData);
+    socket.once("end", onEnd);
+    socket.once("error", onError);
+    socket.once("close", onClose);
+    socket.on("timeout", onTimeout);
+    socket.setTimeout(10000);
   });
 }
 
