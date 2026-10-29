@@ -59,7 +59,7 @@ Add suricata-mcp to any MCP client with the published npm package. No clone or b
 }
 ```
 
-That is the entire install. The server starts read-only against the logs you point it at; everything below is configuration detail and per-client wiring.
+That is the entire install. The server starts read-only against the logs you point it at. Everything below is configuration detail and per-client wiring.
 
 ## Usage
 
@@ -78,9 +78,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
         "SURICATA_RULES_DIR": "/opt/nids/suricata/rules",
         "ZEEK_LOGS_DIR": "/opt/nids/zeek/logs",
         "PCAP_DIR": "/opt/nids/pcaps",
-        "MISP_URL": "https://misp.local",
+        "MISP_URL": "https://misp.example.com",
         "MISP_API_KEY": "your-key",
-        "THEHIVE_URL": "http://thehive.local:9000",
+        "THEHIVE_URL": "https://thehive.example.com",
         "THEHIVE_API_KEY": "your-key"
       }
     }
@@ -343,10 +343,10 @@ tools that change a live IDS or shell out are disabled. To enable them you must:
 1. Set `SURICATA_ALLOW_MUTATION=1` in the server environment (operator opt-in), **and**
 2. Pass `confirm: true` on the tool call itself (per-invocation opt-in).
 
-Both guards must be satisfied; otherwise the tool returns an error without
+Both guards must be satisfied. Otherwise the tool returns an error without
 acting. The gated tools are:
 
-- `suricata_create_rule` - appends to `local.rules`. Additionally enforces a
+- `suricata_create_rule` - appends to `local.rules`. Also enforces a
   local SID range (`sid >= 1000000`) and rejects SIDs that collide with the
   loaded ruleset. Rule text must be a single line with no newline or carriage
   return characters.
@@ -367,7 +367,7 @@ API key attached.
 
 ## Features
 
-- **41 tools** for comprehensive network security analysis
+- **41 tools** for network security analysis
 - **5 resources** for quick reference data
 - **5 prompts** for guided investigation workflows
 - **Suricata EVE JSON** alert querying, flow analysis, protocol inspection, rule management
@@ -473,13 +473,13 @@ suricata-mcp/
 ## Why not query the logs directly?
 
 - **`jq` / `grep` over `eve.json`.** Fine for one field on one file. It does not cross-correlate a Suricata alert with the Zeek `conn`/`dns`/`http`/`ssl` records for the same IP pair and time window, it does not compute beaconing intervals or DNS entropy, and it does not hand an LLM a typed tool surface. suricata-mcp does all of that and streams large, gzip-rotated logs without loading them whole.
-- **A full SIEM (Splunk, Elastic, Wazuh).** A SIEM is the right home for long-term retention, dashboards, and multi-source alerting. suricata-mcp is not a SIEM and is not trying to be one. It is a local, zero-infrastructure way to let an agent reason over the Suricata and Zeek logs already on a sensor, with no index to feed and no service to run.
+- **A full SIEM (Splunk, Elastic, Wazuh).** A SIEM is the right home for long-term retention, dashboards, and multi-source alerting. suricata-mcp lets an agent inspect the Suricata and Zeek logs already on a sensor, without maintaining an index or running another service.
 - **A generic log-tailing MCP server.** Those stream raw lines. suricata-mcp understands EVE JSON and Zeek TSV schemas, so it filters by SID, signature, JA3/JA4, MIME type, and CIDR, aggregates top talkers and protocol distributions, and returns structured results an agent can act on instead of text blobs.
 - **Writing your own MCP wrapper.** You could, but you would re-implement streaming EVE/Zeek parsers, CIDR-aware filtering, the analytics, the dual mutation guard, and the redirect-refusing threat-intel client. That work is already done and tested here.
 
 ## What suricata-mcp is not
 
-- **Not a packet capture or IDS engine.** It does not sniff traffic or run detection. Suricata (and optionally Zeek) produce the logs; this server reads them.
+- **Not a packet capture or IDS engine.** It does not sniff traffic or run detection. Suricata (and optionally Zeek) produce the logs. This server reads them.
 - **Not a SIEM, log store, or dashboard.** No retention, no UI, no indexing. It analyzes the logs that already exist on disk.
 - **Not write-happy.** By default it cannot modify your ruleset, reload the engine, or replay a PCAP. Mutating tools require both an operator environment opt-in and a per-call `confirm: true`.
 - **Not a hosted service.** It runs locally over stdio against your own files. Nothing is sent anywhere except the optional, explicit MISP/TheHive calls you configure.
